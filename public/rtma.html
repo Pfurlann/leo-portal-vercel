@@ -6435,9 +6435,12 @@ function alternarMostrarInativos() {
   
   mostrarInativos = !mostrarInativos;
   atualizarBotaoInativos();
-  
-  // Reaplicar filtros para atualizar a lista
-  filtrarPessoasLocal();
+
+  if (Array.isArray(pessoasPeriodoBase)) {
+    aplicarFiltrosPeriodoLocal();
+  } else {
+    filtrarPessoasLocal();
+  }
   
   console.log('✅ Mostrar inativos:', mostrarInativos);
 }

@@ -6154,6 +6154,25 @@ function obterChavePeriodo(dataInicioBR, dataFimBR) {
   return `${dataInicioBR}|${dataFimBR}`;
 }
 
+// Verifica se pessoa estava ativa ao final do período (DD/MM/YYYY → JS Date, sem deps externas)
+function eraAtivoAoFinalDoPeriodo(pessoa, dataFim) {
+  function parseBR(str) {
+    if (!str) return null;
+    const p = str.split('/');
+    if (p.length !== 3) return null;
+    return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+  }
+  let dataEntrada = null;
+  const preleo = parseBR(pessoa.dataInicioPreLeo);
+  const posse = parseBR(pessoa.associadoDesde);
+  if (preleo) dataEntrada = preleo;
+  if (posse && (!dataEntrada || posse < dataEntrada)) dataEntrada = posse;
+  if (!dataEntrada || dataEntrada > dataFim) return false;
+  const desligamento = parseBR(pessoa.dataDesligamento);
+  if (desligamento && desligamento <= dataFim) return false;
+  return true;
+}
+
 function aplicarFiltrosPeriodoLocal() {
   if (!Array.isArray(pessoasPeriodoBase)) {
     pessoasFiltradas = [];
@@ -6162,10 +6181,14 @@ function aplicarFiltrosPeriodoLocal() {
     atualizarEstatisticas();
     return;
   }
-  
+
   // Resetar paginação quando aplicar filtros de período
   paginaAtual = 1;
-  
+
+  // Período selecionado (input ISO → JS Date) para filtro histórico
+  const dataFimISO = document.getElementById('dataFimPeriodo')?.value?.trim();
+  const dataFimPeriodoJS = dataFimISO ? converterDataISOParaJS(dataFimISO) : null;
+
   pessoasFiltradas = pessoasPeriodoBase.filter(pessoa => {
     if (filtroMovimentacao === 'inclusoes') {
       const isInclusao = isInclusaoRecente(pessoa);
@@ -6175,9 +6198,14 @@ function aplicarFiltrosPeriodoLocal() {
       if (!isExclusao) return false;
     }
 
-    // Filtro de status: inativos só aparecem se mostrarInativos ativo ou filtro exclusoes
-    if (filtroMovimentacao !== 'exclusoes' && !mostrarInativos && pessoa.status !== 'Ativo') {
-      return false;
+    // Filtro de status: usar status histórico (era ativo ao final do período?),
+    // não o status atual — evita excluir pessoas inativas hoje mas ativas no trimestre filtrado
+    if (filtroMovimentacao !== 'exclusoes' && !mostrarInativos) {
+      if (dataFimPeriodoJS) {
+        if (!eraAtivoAoFinalDoPeriodo(pessoa, dataFimPeriodoJS)) return false;
+      } else if (pessoa.status !== 'Ativo') {
+        return false;
+      }
     }
 
     const nomePessoa = String(pessoa.nome || '').toLowerCase();

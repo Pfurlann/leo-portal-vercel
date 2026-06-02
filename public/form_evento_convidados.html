@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscrição – Convidado | LEO Portal</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 24px; background: #f8f9fa; color: #212529; }
+    .container { max-width: 520px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e9ecef; }
+    .evento-capa { width: 100%; height: 180px; background: #e9ecef; object-fit: cover; }
+    .evento-capa-placeholder { width: 100%; height: 180px; background: linear-gradient(135deg, #051C2C 0%, #0a2d42 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
+    .evento-info { padding: 20px; background: #fff; border-bottom: 1px solid #e9ecef; }
+    .evento-info h1 { font-size: 20px; margin: 0 0 8px 0; color: #212529; }
+    .evento-meta { font-size: 14px; color: #6c757d; display: flex; flex-direction: column; gap: 4px; }
+    .evento-meta span { display: flex; align-items: center; gap: 8px; }
+    .evento-desc { font-size: 14px; color: #495057; line-height: 1.5; margin-top: 12px; white-space: pre-wrap; }
+    .evento-pix { margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 13px; color: #495057; }
+    .form-wrap { padding: 24px; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #495057; }
+    input, select, textarea { width: 100%; padding: 10px 14px; font-size: 15px; border: 1px solid #dee2e6; border-radius: 8px; }
+    textarea { min-height: 80px; resize: vertical; }
+    input[type="file"] { padding: 8px; }
+    .btn { display: inline-block; padding: 12px 24px; font-size: 15px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; background: #051C2C; color: #fff; width: 100%; margin-top: 8px; }
+    .btn:hover { background: #0a2d42; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; display: none; }
+    .msg.ok { background: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+    .msg.err { background: #f8d7da; color: #721c24; border: 1px solid #f5c2c7; }
+    .loading { opacity: 0.7; pointer-events: none; }
+    .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #e9ecef; border-top-color: #051C2C; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .required::after { content: ' *'; color: #dc3545; }
+    .valor-lote { font-weight: 600; color: #0f5132; font-size: 16px; }
+    .pessoas-lista { margin-bottom: 16px; }
+    .pessoa-item { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
+    .pessoa-item input { flex: 1; min-width: 0; }
+    .pessoa-item .btn-remover { padding: 10px 14px; flex-shrink: 0; background: #dc3545; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .pessoa-item .btn-remover:hover { background: #c82333; }
+    .btn-add-pessoa { padding: 8px 16px; font-size: 14px; background: #0a2d42; color: #fff; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 16px; }
+    .btn-add-pessoa:hover { background: #051C2C; }
+  </style>
+  <script>
+    var __URL_EVENTO_ID__ = <?!= eventoIdJson ?>;
+    var __URL_LOTE_ID__ = <?!= loteIdJson ?>;
+  </script>
+<script>
+window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';
+window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
+</script>
+<script src="/js/callGAS.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div id="evento-capa-wrap">
+      <div class="evento-capa-placeholder" id="evento-capa-placeholder">Carregando...</div>
+      <img id="evento-capa-img" class="evento-capa" style="display:none;" alt="">
+    </div>
+    <div id="evento-info-wrap" class="evento-info" style="display:none;">
+      <h1 id="titulo-evento">Inscrição de Convidado</h1>
+      <div class="evento-meta">
+        <span id="evento-meta-local"></span>
+        <span id="evento-meta-periodo"></span>
+        <span id="evento-meta-lote"></span>
+        <span id="evento-meta-valor" class="valor-lote"></span>
+      </div>
+      <div id="evento-desc-wrap" class="evento-desc" style="display:none;"></div>
+      <div id="evento-pix-wrap" class="evento-pix" style="display:none;"></div>
+    </div>
+    <div class="form-wrap" id="form-wrap">
+      <div id="form-loading" style="display: flex; align-items: center; justify-content: center; padding: 32px; color: #6c757d;">
+        <span class="loading-spinner"></span>
+        <span>Carregando formulário...</span>
+      </div>
+      <div id="form-content" style="display: none;">
+      <p id="subtitulo-evento" style="margin: 0 0 16px 0; font-size: 14px; color: #6c757d;">Preencha os dados para se inscrever</p>
+      <div id="msg" class="msg"></div>
+      <form id="form" autocomplete="off">
+        <div class="form-group" id="form-group-lote" style="display:none;">
+          <label for="lote" class="required">Lote de inscrição</label>
+          <select id="lote" name="lote" required>
+            <option value="">Selecione o lote</option>
+          </select>
+          <small id="lote-info" style="color:#6c757d; font-size:12px; margin-top:4px; display:block;"></small>
+        </div>
+        <div class="form-group">
+          <label class="required">Pessoas a inscrever</label>
+          <small style="color:#6c757d; font-size:12px; display:block; margin-bottom:8px;">Uma inscrição por pessoa. Um comprovante para todas.</small>
+          <div id="pessoas-lista" class="pessoas-lista">
+            <div class="pessoa-item" data-index="0">
+              <input type="text" name="pessoa_nome" placeholder="Nome completo" required>
+              <input type="text" name="pessoa_cargo" placeholder="Cargo (opcional)" style="max-width:140px;">
+              <input type="text" name="pessoa_restricao" placeholder="Restrição alimentar (opcional)" style="max-width:160px;">
+              <button type="button" class="btn-remover" onclick="removerPessoa(this)" title="Remover" style="display:none;">−</button>
+            </div>
+          </div>
+          <button type="button" class="btn-add-pessoa" onclick="adicionarPessoa()">+ Adicionar outra pessoa</button>
+        </div>
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="representa-clube" name="representa_clube">
+            <span>Representa clube do D8?</span>
+          </label>
+          <div id="form-group-clube" class="form-group" style="display:none; margin-top:10px; margin-left:20px;">
+            <label for="clube-d8">Selecione o clube</label>
+            <select id="clube-d8" name="clube_d8">
+              <option value="">Selecione o clube</option>
+            </select>
+            <div class="form-group" style="margin-top:10px;">
+              <label for="email-clube">E-mail do clube <small style="color:#6c757d; font-weight:normal;">(para envio de passaportes)</small></label>
+              <input type="email" id="email-clube" name="email_clube" placeholder="ex: clube@email.com">
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="representacao">Representação <small style="color:#6c757d; font-weight:normal;">(se não for clube do D8)</small></label>
+          <input type="text" id="representacao" name="representacao" placeholder="Ex: Empresa Y, Individual">
+        </div>
+        <div class="form-group">
+          <label for="comprovante" class="required">Comprovante de pagamento</label>
+          <input type="file" id="comprovante" name="comprovante" accept=".pdf,image/*" required>
+          <small style="color:#6c757d; font-size:12px;">Um comprovante para todas as inscrições acima</small>
+        </div>
+        <button type="submit" class="btn" id="btn-enviar">Enviar inscrição(s)</button>
+      </form>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var eventoId = (typeof __URL_EVENTO_ID__ !== 'undefined' ? __URL_EVENTO_ID__ : '').trim();
+      var loteIdUrl = (typeof __URL_LOTE_ID__ !== 'undefined' ? __URL_LOTE_ID__ : '').trim();
+      if (!eventoId) {
+        var fl = document.getElementById('form-loading');
+        if (fl) fl.style.display = 'none';
+        var fc = document.getElementById('form-content');
+        if (fc) fc.style.display = 'block';
+        document.getElementById('msg').textContent = 'Link inválido. Parâmetro de evento não informado.';
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').style.display = 'block';
+        document.getElementById('form').style.display = 'none';
+        document.getElementById('evento-capa-placeholder').textContent = 'Link inválido';
+        return;
+      }
+      let lotesDisponiveis = [];
+      let loteSelecionado = loteIdUrl || null;
+
+      function preencherMetaLoteValor(nomeLote, restantes, valor) {
+        const metaLote = document.getElementById('evento-meta-lote');
+        const metaValor = document.getElementById('evento-meta-valor');
+        metaLote.textContent = nomeLote ? '🎫 ' + nomeLote + (restantes !== undefined ? ' • ' + restantes + ' vaga(s)' : '') : '';
+        if (valor != null && valor > 0) {
+          metaValor.textContent = 'Valor: R$ ' + valor.toFixed(2).replace('.', ',');
+          metaValor.style.display = '';
+        } else {
+          metaValor.style.display = 'none';
+        }
+      }
+
+      var loadingEl = document.getElementById('form-loading');
+      var formContent = document.getElementById('form-content');
+      google.script.run.withSuccessHandler(function(info) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (formContent) formContent.style.display = 'block';
+        if (info && info.sucesso) {
+          const capaImg = document.getElementById('evento-capa-img');
+          const capaPlaceholder = document.getElementById('evento-capa-placeholder');
+          const infoWrap = document.getElementById('evento-info-wrap');
+          if (info.fotoUrl && info.fotoUrl.length > 0) {
+            capaImg.src = info.fotoUrl;
+            capaImg.style.display = 'block';
+            capaPlaceholder.style.display = 'none';
+          } else {
+            capaPlaceholder.textContent = info.nomeEvento || 'Evento';
+          }
+          infoWrap.style.display = 'block';
+          document.getElementById('titulo-evento').textContent = info.nomeEvento || 'Evento';
+          const metaLocal = document.getElementById('evento-meta-local');
+          const metaPeriodo = document.getElementById('evento-meta-periodo');
+          metaLocal.textContent = info.local ? '📍 ' + info.local : '';
+          metaPeriodo.textContent = info.periodo ? '📅 ' + info.periodo : '';
+          if (info.lotes && info.lotes.length > 0) {
+            lotesDisponiveis = info.lotes;
+            const formGroupLote = document.getElementById('form-group-lote');
+            const selLote = document.getElementById('lote');
+            const loteInfo = document.getElementById('lote-info');
+            formGroupLote.style.display = 'block';
+            selLote.innerHTML = '<option value="">Selecione o lote</option>';
+            info.lotes.forEach(function(l) {
+              const opt = document.createElement('option');
+              opt.value = l.id;
+              opt.textContent = (l.nomeLote || 'Lote') + ' – ' + l.restantes + ' vaga(s)' + (l.valor > 0 ? ' – R$ ' + l.valor.toFixed(2).replace('.', ',') : '');
+              selLote.appendChild(opt);
+            });
+            selLote.addEventListener('change', function() {
+              const v = selLote.value;
+              loteSelecionado = v || null;
+              const l = v ? info.lotes.find(function(x) { return String(x.id) === v; }) : null;
+              if (l) {
+                preencherMetaLoteValor(l.nomeLote, l.restantes, l.valor);
+                loteInfo.textContent = l.restantes + ' vaga(s) restante(s)';
+              } else {
+                document.getElementById('evento-meta-lote').textContent = '';
+                document.getElementById('evento-meta-valor').style.display = 'none';
+                loteInfo.textContent = '';
+              }
+            });
+          } else {
+            preencherMetaLoteValor(info.nomeLote, info.restantes, info.valorLote);
+          }
+          if (info.descricao && info.descricao.length > 0) {
+            document.getElementById('evento-desc-wrap').textContent = info.descricao;
+            document.getElementById('evento-desc-wrap').style.display = 'block';
+          }
+          if (info.pixKey || info.beneficiario || info.banco) {
+            let pixHtml = '💳 Dados para pagamento:';
+            if (info.pixKey) pixHtml += '<br>Chave PIX: ' + info.pixKey;
+            if (info.beneficiario) pixHtml += '<br>Titular: ' + info.beneficiario;
+            if (info.banco) pixHtml += '<br>Banco: ' + info.banco;
+            document.getElementById('evento-pix-wrap').innerHTML = pixHtml;
+            document.getElementById('evento-pix-wrap').style.display = 'block';
+          }
+          const cbRepresenta = document.getElementById('representa-clube');
+          const grpClube = document.getElementById('form-group-clube');
+          const selClube = document.getElementById('clube-d8');
+          const emailClube = document.getElementById('email-clube');
+          const podeEditarEmailPassaporte = !!(info && info.permitirEmailClubePassaporte);
+          if (emailClube) {
+            emailClube.disabled = !podeEditarEmailPassaporte;
+            if (!podeEditarEmailPassaporte) {
+              emailClube.value = '';
+              emailClube.placeholder = 'Desabilitado para este evento';
+            } else {
+              emailClube.placeholder = 'ex: clube@email.com';
+            }
+          }
+          if (info.clubes && info.clubes.length > 0 && cbRepresenta && selClube) {
+            selClube.innerHTML = '<option value="">Selecione o clube</option>';
+            info.clubes.forEach(function(c) {
+              const opt = document.createElement('option');
+              opt.value = c.nome || '';
+              opt.textContent = c.nome || '';
+              selClube.appendChild(opt);
+            });
+            cbRepresenta.addEventListener('change', function() {
+              grpClube.style.display = this.checked ? 'block' : 'none';
+              if (!this.checked) selClube.value = '';
+            });
+          } else if (cbRepresenta && cbRepresenta.closest) {
+            var fg = cbRepresenta.closest('.form-group');
+            if (fg) fg.style.display = 'none';
+          }
+        } else {
+          if (loadingEl) loadingEl.style.display = 'none';
+          document.getElementById('msg').textContent = info && info.erro ? info.erro : 'Evento ou lote não disponível.';
+          document.getElementById('msg').className = 'msg err';
+          document.getElementById('msg').style.display = 'block';
+          document.getElementById('form').style.display = 'none';
+          document.getElementById('evento-capa-placeholder').textContent = 'Link inválido';
+        }
+      }).withFailureHandler(function() {
+        if (loadingEl) loadingEl.style.display = 'none';
+        document.getElementById('msg').textContent = 'Erro ao carregar informações do evento.';
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').style.display = 'block';
+        document.getElementById('form').style.display = 'none';
+        document.getElementById('evento-capa-placeholder').textContent = 'Erro ao carregar';
+      }).obterInfoFormularioConvidado(eventoId, loteIdUrl || null);
+
+      window.adicionarPessoa = function() {
+        const lista = document.getElementById('pessoas-lista');
+        const items = lista.querySelectorAll('.pessoa-item');
+        const index = items.length;
+        const div = document.createElement('div');
+        div.className = 'pessoa-item';
+        div.setAttribute('data-index', index);
+        div.innerHTML = '<input type="text" name="pessoa_nome" placeholder="Nome completo" required>' +
+          '<input type="text" name="pessoa_cargo" placeholder="Cargo (opcional)" style="max-width:140px;">' +
+          '<input type="text" name="pessoa_restricao" placeholder="Restrição alimentar (opcional)" style="max-width:160px;">' +
+          '<button type="button" class="btn-remover" onclick="removerPessoa(this)" title="Remover">−</button>';
+        lista.appendChild(div);
+        items.forEach(function(it) { it.querySelector('.btn-remover').style.display = ''; });
+      };
+      window.removerPessoa = function(btn) {
+        const lista = document.getElementById('pessoas-lista');
+        const items = lista.querySelectorAll('.pessoa-item');
+        if (items.length <= 1) return;
+        btn.closest('.pessoa-item').remove();
+        const rest = lista.querySelectorAll('.pessoa-item');
+        rest.forEach(function(it, i) { it.querySelector('.btn-remover').style.display = rest.length > 1 ? '' : 'none'; });
+      };
+
+      document.getElementById('form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btn-enviar');
+        const msg = document.getElementById('msg');
+        const selLote = document.getElementById('lote');
+        const loteIdFinal = lotesDisponiveis.length > 0 ? (selLote ? selLote.value : '') : loteIdUrl;
+        const comprovanteInput = document.getElementById('comprovante');
+        const pessoasEls = document.querySelectorAll('.pessoa-item');
+        const pessoas = [];
+        pessoasEls.forEach(function(el) {
+          const nome = (el.querySelector('input[name="pessoa_nome"]').value || '').trim();
+          if (!nome) return;
+          const cargo = (el.querySelector('input[name="pessoa_cargo"]').value || '').trim();
+          const restricao = (el.querySelector('input[name="pessoa_restricao"]').value || '').trim();
+          pessoas.push({ nome: nome, cargo: cargo, restricaoAlimentar: restricao });
+        });
+        if (pessoas.length === 0) {
+          msg.textContent = 'Informe ao menos um nome.';
+          msg.className = 'msg err';
+          msg.style.display = 'block';
+          return;
+        }
+        if (lotesDisponiveis.length > 0 && !loteIdFinal) {
+          msg.textContent = 'Selecione o lote de inscrição.';
+          msg.className = 'msg err';
+          msg.style.display = 'block';
+          return;
+        }
+        if (!loteIdFinal && !loteIdUrl) {
+          msg.textContent = 'Selecione o lote de inscrição.';
+          msg.className = 'msg err';
+          msg.style.display = 'block';
+          return;
+        }
+        if (!comprovanteInput || !comprovanteInput.files || comprovanteInput.files.length === 0) {
+          msg.textContent = 'Anexe o comprovante de pagamento.';
+          msg.className = 'msg err';
+          msg.style.display = 'block';
+          return;
+        }
+        const file = comprovanteInput.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+          msg.textContent = 'Arquivo muito grande. Máximo 10MB.';
+          msg.className = 'msg err';
+          msg.style.display = 'block';
+          return;
+        }
+        btn.disabled = true;
+        document.getElementById('form').classList.add('loading');
+        msg.style.display = 'none';
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const base64 = ev.target.result;
+          const parts = base64.split(',');
+          const mime = parts.length > 1 ? (parts[0].match(/data:(.*);base64/) || [])[1] : (file.type || 'application/octet-stream');
+          google.script.run.withSuccessHandler(function(res) {
+            btn.disabled = false;
+            document.getElementById('form').classList.remove('loading');
+            if (res && res.sucesso) {
+              var txt = res.total > 1 ? (res.total + ' inscrições realizadas com sucesso!') : 'Inscrição realizada com sucesso!';
+              if (res.errosParciais && res.errosParciais.length > 0) {
+                txt += ' Algumas não foram concluídas: ' + res.errosParciais.join('; ');
+              }
+              msg.textContent = txt;
+              msg.className = 'msg ok';
+              msg.style.display = 'block';
+              document.getElementById('form').reset();
+              document.getElementById('pessoas-lista').innerHTML = '<div class="pessoa-item" data-index="0">' +
+                '<input type="text" name="pessoa_nome" placeholder="Nome completo" required>' +
+                '<input type="text" name="pessoa_cargo" placeholder="Cargo (opcional)" style="max-width:140px;">' +
+                '<input type="text" name="pessoa_restricao" placeholder="Restrição alimentar (opcional)" style="max-width:160px;">' +
+                '<button type="button" class="btn-remover" onclick="removerPessoa(this)" title="Remover" style="display:none;">−</button></div>';
+              if (selLote) selLote.value = '';
+              loteSelecionado = null;
+              var chk = document.getElementById('representa-clube');
+              var grp = document.getElementById('form-group-clube');
+              if (chk) chk.checked = false;
+              if (grp) grp.style.display = 'none';
+              var selClubeD8 = document.getElementById('clube-d8');
+              if (selClubeD8) selClubeD8.value = '';
+              var emailClubeEl = document.getElementById('email-clube');
+              if (emailClubeEl) emailClubeEl.value = '';
+              var chkClube = document.getElementById('representa-clube');
+              if (chkClube) chkClube.checked = false;
+              var grpClube = document.getElementById('form-group-clube');
+              if (grpClube) grpClube.style.display = 'none';
+              var selClubeD8 = document.getElementById('clube-d8');
+              if (selClubeD8) selClubeD8.value = '';
+              var grpClube = document.getElementById('form-group-clube');
+              if (grpClube) grpClube.style.display = 'none';
+              var selClubeD8 = document.getElementById('clube-d8');
+              if (selClubeD8) selClubeD8.value = '';
+              var grpClube = document.getElementById('form-group-clube');
+              if (grpClube) grpClube.style.display = 'none';
+              var cbClube = document.getElementById('representa-clube');
+              if (cbClube) cbClube.checked = false;
+            } else {
+              msg.textContent = res && res.erro ? res.erro : 'Erro ao processar inscrição.';
+              msg.className = 'msg err';
+              msg.style.display = 'block';
+            }
+          }).withFailureHandler(function(err) {
+            btn.disabled = false;
+            document.getElementById('form').classList.remove('loading');
+            msg.textContent = err && err.message ? err.message : 'Erro de conexão. Tente novamente.';
+            msg.className = 'msg err';
+            msg.style.display = 'block';
+          }).registrarInscricaoConvidadoExterno({
+            eventoId: eventoId,
+            loteId: loteIdFinal,
+            pessoas: pessoas,
+            representaClube: document.getElementById('representa-clube') && document.getElementById('representa-clube').checked,
+            clubeD8: (document.getElementById('clube-d8') && document.getElementById('clube-d8').value) || '',
+            emailClube: (document.getElementById('email-clube') && document.getElementById('email-clube').value) ? document.getElementById('email-clube').value.trim() : '',
+            representacao: (document.getElementById('representacao').value || '').trim(),
+            comprovanteBase64: base64,
+            comprovanteNome: file.name,
+            comprovanteMime: mime,
+            comprovanteTamanho: file.size
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    })();
+  </script>
+</body>
+</html>

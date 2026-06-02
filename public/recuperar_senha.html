@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperar Senha - LEO Portal</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 450px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    .logo-container {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo-container img {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+    }
+    
+    h1 {
+      color: #212529;
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #6c757d;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      color: #495057;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    
+    input[type="email"] {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    input[type="email"]:focus {
+      outline: none;
+      border-color: #495057;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+    
+    .btn-primary {
+      background: #495057;
+      color: #fff;
+    }
+    
+    .btn-primary:hover {
+      background: #3d4145;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(73, 80, 87, 0.3);
+    }
+    
+    .btn-primary:disabled {
+      background: #adb5bd;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-secondary {
+      background: #fff;
+      color: #495057;
+      border: 1px solid #dee2e6;
+    }
+    
+    .btn-secondary:hover {
+      background: #f8f9fa;
+      border-color: #adb5bd;
+    }
+    
+    .message {
+      margin: 15px 0;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+    
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+    
+    .back-link {
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .back-link a {
+      color: #495057;
+      text-decoration: none;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .back-link a:hover {
+      color: #212529;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-container">
+      <img src="https://i.imgur.com/WZhg99L.png" alt="Logo Distrito LEO LD-8">
+    </div>
+    
+    <h1>Recuperar Senha</h1>
+    <p class="subtitle">Digite seu email para receber um link de recuperação</p>
+    
+    <form id="formRecuperar" onsubmit="enviarRecuperacao(event)">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="seu.email@exemplo.com" required autofocus>
+      </div>
+      
+      <div id="mensagem" class="message"></div>
+      
+      <button type="submit" class="btn btn-primary" id="btnEnviar">
+        Enviar Email de Recuperação
+      </button>
+    </form>
+    
+    <div class="back-link">
+      <a href="#" onclick="voltarParaLogin(); return false;">
+        <i class="fas fa-arrow-left"></i>
+        Voltar para login
+      </a>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://bqkttaflhtsdkamgscnf.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ'
+    };
+    
+    let supabase = null;
+    
+    function inicializarSupabase() {
+      if (typeof supabase === 'undefined' || !window.supabase) {
+        console.error('Supabase SDK não carregado');
+        return null;
+      }
+      return window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+    }
+    
+    async function enviarRecuperacao(event) {
+      event.preventDefault();
+      
+      const emailInput = document.getElementById('email');
+      const btnEnviar = document.getElementById('btnEnviar');
+      const mensagemDiv = document.getElementById('mensagem');
+      
+      const email = emailInput.value.trim();
+      
+      if (!email) {
+        mostrarMensagem('Por favor, digite seu email.', 'error');
+        return;
+      }
+      
+      // Inicializar Supabase
+      if (!supabase) {
+        supabase = inicializarSupabase();
+        if (!supabase) {
+          mostrarMensagem('Erro ao inicializar sistema. Tente novamente.', 'error');
+          return;
+        }
+      }
+      
+      // Desabilitar botão
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = 'Enviando...';
+      mensagemDiv.className = 'message';
+      mensagemDiv.style.display = 'none';
+      
+      try {
+        // Mesma web app pública do GAS (deve estar em Supabase → Auth → Redirect URLs)
+        const redirectUrl = 'https://script.google.com/a/macros/leold8.org.br/s/AKfycbyxhzZE30640fN97YFvn3Oi-EFdpuK6N4xju8yyP0etbWQhuhoB_3RCec7yvQ1JAu2MTA/exec';
+        
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase().trim(), {
+          redirectTo: redirectUrl
+        });
+        
+        if (error) {
+          console.error('❌ Erro ao enviar email:', error);
+          let mensagemErro = 'Erro ao enviar email. Verifique se o email está correto.';
+          if (error.message.includes('rate limit')) {
+            mensagemErro = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+          }
+          mostrarMensagem(mensagemErro, 'error');
+          btnEnviar.disabled = false;
+          btnEnviar.textContent = 'Enviar Email de Recuperação';
+          return;
+        }
+        
+        // Sucesso - redirecionar para página de confirmação
+        window.location.href = 'email_enviado.html?email=' + encodeURIComponent(email);
+        
+      } catch (error) {
+        console.error('❌ Erro inesperado:', error);
+        mostrarMensagem('Erro ao enviar email. Tente novamente.', 'error');
+        btnEnviar.disabled = false;
+        btnEnviar.textContent = 'Enviar Email de Recuperação';
+      }
+    }
+    
+    function mostrarMensagem(texto, tipo) {
+      const mensagemDiv = document.getElementById('mensagem');
+      mensagemDiv.textContent = texto;
+      mensagemDiv.className = 'message ' + tipo;
+      mensagemDiv.style.display = 'block';
+    }
+    
+    function voltarParaLogin() {
+      // Usar URL fixa do script
+      const baseUrl = 'https://script.google.com/a/macros/leold8.org.br/s/AKfycbyxhzZE30640fN97YFvn3Oi-EFdpuK6N4xju8yyP0etbWQhuhoB_3RCec7yvQ1JAu2MTA/exec';
+      window.location.href = baseUrl + '?page=rtma';
+    }
+    
+    // Verificar se há parâmetro de reset (quando usuário clica no link do email)
+    window.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('reset') === 'true') {
+        // Redirecionar para página de redefinir senha
+        const baseUrl = 'https://script.google.com/a/macros/leold8.org.br/s/AKfycbyxhzZE30640fN97YFvn3Oi-EFdpuK6N4xju8yyP0etbWQhuhoB_3RCec7yvQ1JAu2MTA/exec';
+        window.location.href = baseUrl + '?page=redefinir_senha' + window.location.hash;
+      }
+    });
+  </script>
+</body>
+</html>

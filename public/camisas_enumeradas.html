@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Uniformes D-8</title>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f8f9fa;
+      color: #212529;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #e9ecef;
+      color: #212529;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      color: #212529;
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header h1 .header-logo {
+      height: 40px;
+      width: auto;
+      vertical-align: middle;
+    }
+
+    .header p {
+      margin: 6px 0 0 0;
+      color: #6c757d;
+      font-size: 14px;
+    }
+
+    .layout {
+      display: block;
+    }
+
+    .header-actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 22px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e9ecef;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #212529;
+    }
+
+    .card-title i {
+      color: #6c757d;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e9ecef;
+      color: #495057;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #212529;
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 11px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-family: inherit;
+      color: #212529;
+      background: rgba(255, 255, 255, 0.9);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="url"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #6c757d;
+      box-shadow: 0 0 0 1px rgba(108, 117, 125, 0.25);
+      background: #ffffff;
+    }
+
+    select {
+      cursor: pointer;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 18px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: #6c757d;
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-primary:hover {
+      background: #5a6268;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #dee2e6;
+      color: #212529;
+    }
+
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    .status.error {
+      color: #b91c1c;
+    }
+
+    .status.success {
+      color: #166534;
+    }
+
+    .grid-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .grid-header h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #212529;
+    }
+
+    .pill-counter {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.07);
+      color: #212529;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Fileiras de 10 camisas; vagas 1–100 em verde, ocupadas normais */
+    .activities-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 10px;
+      padding: 4px 0;
+    }
+
+    @media (max-width: 700px) {
+      .activities-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+
+    .camisa-card {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 10px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .camisa-card.camisa-vaga {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #166534;
+      cursor: pointer;
+    }
+
+    .camisa-card:hover {
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .camisa-icon {
+      width: 36px;
+      height: 36px;
+      background: #e9ecef;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6c757d;
+      margin-bottom: 6px;
+    }
+
+    .camisa-card.camisa-vaga .camisa-icon {
+      background: #bbf7d0;
+      color: #166534;
+    }
+
+    .camisa-icon i {
+      font-size: 16px;
+    }
+
+    .camisa-nome {
+      font-size: 11px;
+      font-weight: 600;
+      color: #212529;
+      text-align: center;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      margin-bottom: 4px;
+      min-height: 2.5em;
+    }
+
+    .camisa-card.camisa-vaga .camisa-nome {
+      color: #166534;
+      font-weight: 500;
+    }
+
+    .camisa-numero {
+      font-size: 16px;
+      font-weight: 700;
+      color: #495057;
+      letter-spacing: 0.02em;
+    }
+
+    .camisa-card.camisa-vaga .camisa-numero {
+      color: #15803d;
+    }
+
+    /* Modal do formulário */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .modal-overlay.modal-aberto {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      max-width: 480px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-fechar {
+      background: transparent;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+      color: #6c757d;
+      border-radius: 8px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .modal-fechar:hover {
+      background: #e9ecef;
+      color: #212529;
+    }
+
+    .pix-info {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #166534;
+    }
+
+    .pix-info strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #15803d;
+    }
+
+    .pix-info p {
+      margin: 0 0 6px 0;
+      line-height: 1.45;
+    }
+
+    .pix-info p:last-child {
+      margin-bottom: 0;
+    }
+
+    .empty-state {
+      padding: 16px 12px;
+      border-radius: 12px;
+      background: #f8f9fa;
+      border: 1px dashed #dee2e6;
+      font-size: 12px;
+      color: #6c757d;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .empty-state i {
+      color: #adb5bd;
+    }
+
+    .legend {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #6c757d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
+<script>
+window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';
+window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
+</script>
+<script src="/js/callGAS.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>Vestimentas do time que vai em busca da Terceira! <img src="https://i.imgur.com/WZhg99L.png" alt="Logo" class="header-logo"></h1>
+      <div class="header-actions">
+        <button type="button" class="btn btn-primary" onclick="abrirModalFormulario()">
+          <i class="fas fa-shirt"></i>
+          Encomendar minha Camisa
+        </button>
+        <button type="button" class="btn btn-outline" id="btn-atualizar-lista" onclick="recarregarCamisas()">
+          <i class="fas fa-rotate"></i>
+          Atualizar lista
+        </button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="card" id="painel-camisas">
+        <div class="grid-header">
+          <div>
+            <div class="card-title" style="margin-bottom:4px;">
+              <i class="fas fa-grid-2"></i>
+              <span>Números disponíveis</span>
+            </div>
+          </div>
+          <div>
+            <div class="pill-counter">
+              <i class="fas fa-list-ol"></i>
+              <span id="contador-camisas">0 reservadas</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="lista-camisas" class="activities-grid">
+          <!-- Cards 1–100: vagas em verde, ocupadas com nome -->
+        </div>
+
+        <div id="estado-vazio" class="empty-state" style="display:none;">
+          <!-- Mensagem preenchida por JS (vazio ou erro) -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Modal: formulário de encomenda -->
+    <div id="modal-formulario" class="modal-overlay" onclick="fecharModalSeCliqueFora(event)">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2><i class="fas fa-pen-nib"></i> Encomendar minha Camisa</h2>
+          <button type="button" class="modal-fechar" onclick="fecharModalFormulario()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="pix-info">
+          <strong>Pagamento PIX</strong>
+          <p>Chave PIX: <strong>leon4rdob@gmail.com</strong></p>
+          <p>Valor: <strong>R$ 90,00</strong></p>
+          <p>Pedidos até <strong>01/03/2026 23:59</strong></p>
+        </div>
+        <form id="form-camisa" onsubmit="enviarFormulario(event)">
+          <div class="form-group">
+            <label for="nomeCompleto">Nome completo</label>
+            <input type="text" id="nomeCompleto" name="nomeCompleto" required autocomplete="name" maxlength="120">
+          </div>
+
+          <div class="row">
+            <div class="form-group">
+              <label for="tamanho">Tamanho da camiseta</label>
+              <select id="tamanho" name="tamanho" required>
+                <option value="">Selecione...</option>
+                <option value="PP">PP</option>
+                <option value="P">P</option>
+                <option value="M">M</option>
+                <option value="G">G</option>
+                <option value="GG">GG</option>
+                <option value="EG">EG</option>
+                <option value="Outro">Outro</option>
+              </select>
+              <small>Use o mesmo tamanho indicado ao solicitar sua camiseta.</small>
+            </div>
+
+            <div class="form-group">
+              <label for="numeroCamisa">Número nas costas</label>
+              <input type="number" id="numeroCamisa" name="numeroCamisa" inputmode="numeric" min="0" max="999" required>
+              <small>Escolha um número (0 a 999). Números já usados não poderão ser repetidos.</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="nomePersonalizacao">Nome para personalização</label>
+            <input type="text" id="nomePersonalizacao" name="nomePersonalizacao" required maxlength="7">
+            <small>Será o nome escrito na parte de trás da camiseta (máx. 7 caracteres).</small>
+          </div>
+
+          <div class="form-group">
+            <label for="comprovanteArquivo">Comprovante de pagamento (anexo)</label>
+            <input type="file" id="comprovanteArquivo" name="comprovanteArquivo" accept="image/*,.pdf,application/pdf">
+            <small>Envie uma foto ou PDF do comprovante. O arquivo será salvo na pasta do Drive do time.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="retirada">Opções para retirada da camisa</label>
+            <select id="retirada" name="retirada">
+              <option value="">Selecione...</option>
+              <option value="Quero receber a camiseta na viagem do III CDM (21/03/26)">Quero receber a camiseta na viagem do III CDM (21/03/26)</option>
+              <option value="Vou retirar a minha :)">Vou retirar a minha :)</option>
+              <option value="Na primeira oportunidade possível ✨">Na primeira oportunidade possível ✨</option>
+              <option value="Não tenho certeza se vou no III CDM">Não tenho certeza se vou no III CDM</option>
+              <option value="Encontro de região">Encontro de região</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn btn-outline" onclick="fecharModalFormulario()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-enviar">
+              <i class="fas fa-check"></i>
+              Enviar dados
+            </button>
+          </div>
+
+          <div id="status-mensagem" class="status" style="display:none;"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setStatus(message, type) {
+      var el = document.getElementById('status-mensagem');
+      if (!el) return;
+      el.textContent = message || '';
+      el.className = 'status ' + (type || '');
+      el.style.display = message ? 'block' : 'none';
+    }
+
+    function bloquearFormulario(bloquear) {
+      var form = document.getElementById('form-camisa');
+      var btn = document.getElementById('btn-enviar');
+      if (form) {
+        Array.prototype.forEach.call(form.elements, function(el) {
+          if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+            if (el.id === 'btn-enviar') return;
+            el.disabled = !!bloquear;
+          }
+        });
+      }
+      if (btn) {
+        btn.disabled = !!bloquear;
+        btn.innerHTML = bloquear
+          ? '<i class="fas fa-circle-notch fa-spin"></i> Enviando...'
+          : '<i class="fas fa-check"></i> Enviar dados';
+      }
+    }
+
+    function formatarDataCamisa(val) {
+      if (!val) return 'Reserva';
+      try {
+        var d = val instanceof Date ? val : new Date(val);
+        if (isNaN(d.getTime())) return 'Reserva';
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      } catch (e) {
+        return 'Reserva';
+      }
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function abrirModalFormulario(numero) {
+      if (numero != null && !isNaN(parseInt(numero, 10))) {
+        var inputNumero = document.getElementById('numeroCamisa');
+        if (inputNumero) inputNumero.value = parseInt(numero, 10);
+      }
+      var modal = document.getElementById('modal-formulario');
+      if (modal) modal.classList.add('modal-aberto');
+    }
+
+    function fecharModalFormulario() {
+      var modal = document.getElementById('modal-formulario');
+      if (modal) modal.classList.remove('modal-aberto');
+    }
+
+    function fecharModalSeCliqueFora(event) {
+      if (event.target.id === 'modal-formulario') fecharModalFormulario();
+    }
+
+    function renderizarCamisas(lista, mensagemErro) {
+      var container = document.getElementById('lista-camisas');
+      var contador = document.getElementById('contador-camisas');
+      var vazio = document.getElementById('estado-vazio');
+      if (!container || !contador || !vazio) return;
+
+      container.innerHTML = '';
+
+      if (mensagemErro) {
+        contador.textContent = '—';
+        vazio.style.display = 'flex';
+        vazio.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#b45309;"></i><span>' + escapeHtml(mensagemErro) + '</span>';
+        return;
+      }
+
+      var itens = Array.isArray(lista) ? lista : [];
+      var porNumero = {};
+      var numerosAcimaDe100 = [];
+      itens.forEach(function(item) {
+        var n = parseInt(item.numeroCamisa, 10);
+        if (!isNaN(n) && n >= 0) {
+          porNumero[n] = item;
+          if (n > 99) numerosAcimaDe100.push(n);
+        }
+      });
+      numerosAcimaDe100.sort(function(a, b) { return a - b; });
+
+      contador.textContent = itens.length + (itens.length === 1 ? ' reservada' : ' reservadas');
+      vazio.style.display = 'none';
+
+      // 00 a 99: ocupado ou vaga. Nunca mostrar vagas após o 99.
+      for (var num = 0; num <= 99; num++) {
+        var item = porNumero[num];
+        var cardHtml;
+        if (item) {
+          var nome = (item.nomePersonalizacao || '').trim() || (item.nomeCompleto || '').trim() || '—';
+          var numeroStr = (item.numeroCamisa || '').toString().padStart(2, '0');
+          cardHtml =
+            '<div class="camisa-card">' +
+              '<div class="camisa-icon"><i class="fas fa-shirt"></i></div>' +
+              '<div class="camisa-nome">' + escapeHtml(nome) + '</div>' +
+              '<div class="camisa-numero">' + escapeHtml(numeroStr) + '</div>' +
+            '</div>';
+        } else {
+          var nStr = String(num).padStart(2, '0');
+          cardHtml =
+            '<div class="camisa-card camisa-vaga" data-numero="' + num + '" role="button" tabindex="0" onclick="abrirModalFormulario(' + num + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();abrirModalFormulario(' + num + ');}">' +
+              '<div class="camisa-icon"><i class="fas fa-shirt"></i></div>' +
+              '<div class="camisa-nome">Vaga</div>' +
+              '<div class="camisa-numero">' + escapeHtml(nStr) + '</div>' +
+            '</div>';
+        }
+        container.insertAdjacentHTML('beforeend', cardHtml);
+      }
+      // Acima de 99 (100, 192, etc.): só os números que já têm resposta
+      numerosAcimaDe100.forEach(function(num) {
+        var item = porNumero[num];
+        if (!item) return;
+        var nome = (item.nomePersonalizacao || '').trim() || (item.nomeCompleto || '').trim() || '—';
+        var numeroStr = (item.numeroCamisa || '').toString();
+        var cardHtml =
+          '<div class="camisa-card">' +
+            '<div class="camisa-icon"><i class="fas fa-shirt"></i></div>' +
+            '<div class="camisa-nome">' + escapeHtml(nome) + '</div>' +
+            '<div class="camisa-numero">' + escapeHtml(numeroStr) + '</div>' +
+          '</div>';
+        container.insertAdjacentHTML('beforeend', cardHtml);
+      });
+    }
+
+    function setLoadingAtualizar(loading) {
+      var btn = document.getElementById('btn-atualizar-lista');
+      if (!btn) return;
+      btn.disabled = !!loading;
+      btn.innerHTML = loading
+        ? '<i class="fas fa-circle-notch fa-spin"></i> Carregando...'
+        : '<i class="fas fa-rotate"></i> Atualizar lista';
+    }
+
+    function recarregarCamisas() {
+      setLoadingAtualizar(true);
+      // Usar google.script.run evita que um fetch separado receba a página de autorização do Google em vez do JSON.
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(function(dados) {
+            console.log('[Camisas] Resposta do servidor:', dados);
+            if (dados == null) {
+              renderizarCamisas([], 'O servidor retornou vazio. Verifique Execuções no Apps Script (logs [Camisas]) e use deploy com versão Head.');
+              setLoadingAtualizar(false);
+              return;
+            }
+            var itens = Array.isArray(dados) ? dados : (dados && dados.itens) ? dados.itens : [];
+            var msg = null;
+            if (itens.length === 0 && dados && dados.debug) {
+              var dbg = dados.debug;
+              if (dbg.erro) {
+                msg = 'Erro: ' + dbg.erro;
+                if (dbg.abasDisponiveis) msg += ' Abas na planilha: ' + (dbg.abasDisponiveis.join(', ') || '?');
+              } else {
+                msg = 'Aba: "' + (dbg.sheetNome || '') + '". Última linha: ' + (dbg.ultimaLinhaPlanilha != null ? dbg.ultimaLinhaPlanilha : '?') + ', linhas lidas: ' + (dbg.linhasLidas != null ? dbg.linhasLidas : '?') + ', com número: 0.';
+                if (dbg.motivo) msg += ' ' + dbg.motivo;
+                if (dbg.amostraColunaE && dbg.amostraColunaE.length) {
+                  msg += ' Amostra col.E: ' + dbg.amostraColunaE.map(function(x) { return JSON.stringify(x.raw) + '->' + x.normalizado; }).join(', ');
+                } else if (dbg.ultimaLinhaPlanilha > 1) msg += ' Verifique se a coluna E está preenchida.';
+              }
+            }
+            renderizarCamisas(itens || [], msg);
+            setLoadingAtualizar(false);
+          })
+          .withFailureHandler(function(err) {
+            console.error('[Camisas] Falha ao chamar servidor:', err);
+            var msg = (err && err.message) ? err.message : 'Erro ao carregar a lista. Verifique se quem abre a página tem acesso à planilha (ou use Executar como: Eu no deploy).';
+            renderizarCamisas([], msg);
+            setLoadingAtualizar(false);
+          })
+          .listarCamisasEnumeradas();
+        return;
+      }
+      // Fallback: tentar via fetch (pode retornar HTML de auth em alguns deployments).
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.set('page', 'camisas_enumeradas_api');
+        fetch(url.toString(), { method: 'GET', cache: 'no-store' })
+          .then(function(resp) { return resp.text(); })
+          .then(function(texto) {
+            var dados = {};
+            try {
+              dados = JSON.parse(texto);
+            } catch (e) {
+              console.error('Erro ao fazer parse do JSON das camisas. Use a página pelo link do Portal.', e);
+              renderizarCamisas([]);
+              setLoadingAtualizar(false);
+              return;
+            }
+            var itens = Array.isArray(dados) ? dados : (dados && dados.itens) ? dados.itens : [];
+            renderizarCamisas(itens || []);
+            setLoadingAtualizar(false);
+          })
+          .catch(function(err) {
+            console.error('Erro ao carregar camisas:', err);
+            renderizarCamisas([]);
+            setLoadingAtualizar(false);
+          });
+      } catch (e) {
+        renderizarCamisas([]);
+        setLoadingAtualizar(false);
+      }
+    }
+
+    function enviarFormulario(event) {
+      event.preventDefault();
+
+      var comprovanteInput = document.getElementById('comprovanteArquivo');
+      var arquivo = comprovanteInput && comprovanteInput.files && comprovanteInput.files[0];
+
+      setStatus('', '');
+      bloquearFormulario(true);
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        setStatus('Não foi possível enviar os dados. Tente novamente mais tarde.', 'error');
+        bloquearFormulario(false);
+        return;
+      }
+
+      function salvarComComprovante(comprovanteUrl) {
+        var dados = {
+          nomeCompleto: document.getElementById('nomeCompleto').value,
+          tamanho: document.getElementById('tamanho').value,
+          nomePersonalizacao: document.getElementById('nomePersonalizacao').value,
+          numeroCamisa: document.getElementById('numeroCamisa').value,
+          comprovanteUrl: comprovanteUrl || '',
+          retirada: document.getElementById('retirada').value
+        };
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res && res.sucesso) {
+              setStatus('Dados enviados com sucesso! Sua camiseta será considerada com essas informações.', 'success');
+              document.getElementById('form-camisa').reset();
+              fecharModalFormulario();
+              recarregarCamisas();
+            } else {
+              setStatus((res && res.erro) || 'Não foi possível salvar os dados. Tente novamente.', 'error');
+            }
+            bloquearFormulario(false);
+          })
+          .withFailureHandler(function(err) {
+            console.error('Erro ao salvar camiseta:', err);
+            setStatus('Erro ao salvar os dados. Tente novamente em alguns instantes.', 'error');
+            bloquearFormulario(false);
+          })
+          .salvarCamisaEnumerada(dados);
+      }
+
+      if (arquivo) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          var base64 = reader.result;
+          google.script.run
+            .withSuccessHandler(function(uploadRes) {
+              if (uploadRes && uploadRes.sucesso && uploadRes.url) {
+                salvarComComprovante(uploadRes.url);
+              } else {
+                setStatus((uploadRes && uploadRes.erro) || 'Erro ao enviar comprovante.', 'error');
+                bloquearFormulario(false);
+              }
+            })
+            .withFailureHandler(function(err) {
+              console.error('Erro ao enviar comprovante:', err);
+              setStatus('Erro ao enviar arquivo. Tente novamente.', 'error');
+              bloquearFormulario(false);
+            })
+            .enviarComprovanteCamisaParaDrive(base64, arquivo.name);
+        };
+        reader.onerror = function() {
+          setStatus('Erro ao ler o arquivo.', 'error');
+          bloquearFormulario(false);
+        };
+        reader.readAsDataURL(arquivo);
+      } else {
+        salvarComComprovante('');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      recarregarCamisas();
+    });
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,21 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/rtma", "destination": "/public/rtma.html" },
+    { "source": "/scanner", "destination": "/public/scanner_refeicoes.html" },
+    { "source": "/camisas", "destination": "/public/camisas_enumeradas.html" },
+    { "source": "/recuperar-senha", "destination": "/public/recuperar_senha.html" },
+    { "source": "/redefinir-senha", "destination": "/public/redefinir_senha.html" },
+    { "source": "/", "destination": "/public/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
+    }
+  ]
+}

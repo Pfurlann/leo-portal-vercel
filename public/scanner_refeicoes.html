@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Scanner Passaporte | LEO Portal</title>
+  <script>
+    var EVENTO_ID = (<?!= eventoIdJson ?> || '').trim();
+    var EVENTO_NOME = (<?!= eventoNomeJson ?> || '').trim();
+  </script>
+  <script>
+    // Quando esta página é servida via ContentService (sem HtmlService),
+    // `google.script.run` não existe. Criamos um proxy que chama o Apps Script via fetch (doPost?api=...).
+    (function() {
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run) return;
+        var baseUrl = (location && location.href ? location.href.split('?')[0] : '');
+        if (!baseUrl) return;
+
+        function callApi(nome, args) {
+          var url = baseUrl + '?api=' + encodeURIComponent(String(nome || ''));
+          return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ args: Array.isArray(args) ? args : [] })
+          }).then(function(r) {
+            return r.text().then(function(t) {
+              try { return JSON.parse(t); } catch (e) { throw new Error(t || ('HTTP ' + r.status)); }
+            });
+          });
+        }
+
+        function createChain() {
+          var success = null;
+          var failure = null;
+          var chain = {};
+          var proxy = new Proxy(chain, {
+            get: function(_, prop) {
+              if (prop === 'withSuccessHandler') return function(fn) { success = fn; return proxy; };
+              if (prop === 'withFailureHandler') return function(fn) { failure = fn; return proxy; };
+              return function() {
+                var callArgs = Array.prototype.slice.call(arguments);
+                callApi(prop, callArgs).then(function(res) {
+                  if (typeof success === 'function') success(res);
+                }).catch(function(err) {
+                  var e = { message: (err && err.message) ? err.message : String(err) };
+                  if (typeof failure === 'function') failure(e);
+                });
+              };
+            }
+          });
+          return proxy;
+        }
+
+        window.google = window.google || {};
+        window.google.script = window.google.script || {};
+        window.google.script.run = createChain();
+      } catch (e) {
+        // se der erro aqui, o scanner vai mostrar a mensagem padrão do próprio código
+      }
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 16px; background: #051C2C; color: #fff; min-height: 100vh; }
+    .container { max-width: 480px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 16px 0; text-align: center; }
+    #reader { border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 16px; min-height: 200px; }
+    #reader video { width: 100%; display: block; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #adb5bd; }
+    select { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #495057; border-radius: 8px; background: #0a2d42; color: #fff; }
+    .fila-status { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #0a2d42; border-radius: 12px; margin-bottom: 16px; }
+    .fila-status-num { font-size: 24px; font-weight: 700; color: #20c997; }
+    .fila-status-label { font-size: 14px; color: #adb5bd; }
+    .fila-botoes { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-enviar { padding: 12px 20px; font-size: 15px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; background: #198754; color: #fff; }
+    .btn-enviar:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-enviar.enviando { background: #0d6efd; }
+    .btn-limpar { padding: 12px 16px; font-size: 14px; border: 1px solid #6c757d; border-radius: 8px; background: transparent; color: #adb5bd; cursor: pointer; }
+    #resultado { padding: 16px; border-radius: 12px; margin-top: 16px; font-size: 15px; display: none; min-height: 60px; }
+    #resultado.ok { background: #198754; color: #fff; display: block; }
+    #resultado.err { background: #dc3545; color: #fff; display: block; }
+    #resultado.warn { background: #fd7e14; color: #fff; display: block; }
+    .status { font-size: 14px; color: #adb5bd; margin-bottom: 8px; }
+    .status.pronto { color: #20c997; font-weight: 600; }
+    .erro-msg { background: #dc3545; color: #fff; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 14px; }
+    #painel-alimentacao, #painel-competicao, #painel-plenaria { margin-top: 8px; }
+    #overlay-loading, #overlay-result { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column; padding: 24px; text-align: center; transition: opacity 0.15s ease; }
+    #overlay-loading { background: rgba(5, 28, 44, 0.95); color: #fff; }
+    #overlay-loading.ativo { display: flex; }
+    #overlay-result.ativo { display: flex; }
+    #overlay-result.tela-ok { background: #198754; color: #fff; }
+    #overlay-result.tela-err { background: #dc3545; color: #fff; }
+    #overlay-result.tela-warn { background: #fd7e14; color: #fff; }
+    #overlay-result-msg { font-size: 1.1rem; font-weight: 600; max-width: 360px; line-height: 1.4; }
+    .spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .scan-beep { display: none; }
+    #modal-credenciados { position: fixed; inset: 0; z-index: 10000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.7); }
+    #modal-credenciados.ativo { display: flex; }
+    .modal-credenciados-box { background: #0a2d42; border-radius: 12px; max-width: 480px; width: 100%; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; }
+    .modal-credenciados-header { padding: 16px; border-bottom: 1px solid #495057; display: flex; justify-content: space-between; align-items: center; }
+    .modal-credenciados-header h3 { margin: 0; font-size: 18px; }
+    .modal-credenciados-filtro { padding: 12px 16px; border-bottom: 1px solid #495057; }
+    .modal-credenciados-filtro select { width: 100%; }
+    .modal-credenciados-lista { padding: 12px; overflow-y: auto; flex: 1; }
+    .cred-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 6px; background: #051C2C; border-radius: 8px; font-size: 14px; }
+    .cred-item-info { flex: 1; }
+    .cred-item-nome { font-weight: 600; }
+    .cred-item-clube { font-size: 12px; color: #adb5bd; margin-top: 2px; }
+    .btn-excluir-cred { padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; background: #dc3545; color: #fff; cursor: pointer; }
+    .btn-excluir-cred:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-fechar-modal { padding: 8px 16px; border: 1px solid #6c757d; border-radius: 8px; background: transparent; color: #adb5bd; cursor: pointer; }
+    .modal-credenciados-vazio { padding: 24px; text-align: center; color: #adb5bd; }
+  </style>
+<script>
+window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';
+window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
+</script>
+<script src="/js/callGAS.js"></script>
+</head>
+<body>
+  <div id="overlay-loading">
+    <div class="spinner"></div>
+    <span id="overlay-loading-text">Enviando...</span>
+  </div>
+  <div id="overlay-result">
+    <div id="overlay-result-msg"></div>
+  </div>
+  <div class="container">
+    <h1 id="scanner-titulo">Scanner – Passaporte</h1>
+    <p id="scanner-evento-nome" style="margin: 0 0 12px 0; font-size: 15px; color: #adb5bd; text-align: center;"></p>
+    <div class="fila-status">
+      <div>
+        <div class="fila-status-num" id="fila-contador">0</div>
+        <div class="fila-status-label">pendentes para enviar</div>
+      </div>
+      <div class="fila-botoes">
+        <button type="button" class="btn-enviar" id="btn-enviar" onclick="enviarFila()">Enviar agora</button>
+        <button type="button" class="btn-limpar" id="btn-limpar" onclick="limparFila()">Limpar</button>
+      </div>
+    </div>
+    <div class="status" id="status">Carregando...</div>
+    <div id="reader"></div>
+    <div style="margin: 10px 0 16px 0; text-align: center;">
+      <button type="button" class="btn-enviar" id="btn-iniciar-camera">Ativar câmera</button>
+    </div>
+    <div class="form-group" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #495057;">
+      <label style="font-size: 13px; color: #adb5bd;">Se a câmera não funcionar: cole o código do passaporte (UUID) abaixo</label>
+      <div style="display: flex; gap: 8px; margin-top: 8px;">
+        <input type="text" id="input-manual-uuid" placeholder="Ex: 8c6d4808-5aff-4bd3-a831-4866b8febdce" style="flex:1; padding: 10px 12px; font-size: 14px; border: 1px solid #495057; border-radius: 8px; background: #0a2d42; color: #fff;">
+        <button type="button" class="btn-enviar" id="btn-adicionar-manual" style="padding: 10px 16px;">Adicionar</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Tipo de leitura</label>
+      <select id="tipo-leitura">
+        <option value="alimentacao">Alimentação</option>
+        <option value="competicao">Competição</option>
+        <option value="plenaria">Plenária</option>
+      </select>
+    </div>
+    <div id="painel-plenaria" class="form-group" style="display:none;">
+      <p style="font-size:13px;color:#adb5bd;margin:0 0 8px 0;">Valida direito a delegados (Art. 52) e controla quantidade por clube.</p>
+      <div id="plenaria-resumo" style="background:#0a2d42;border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:14px;color:#adb5bd;">Delegados credenciados: <strong id="plenaria-total" style="color:#20c997;">0</strong></div>
+        <div id="plenaria-ultimos" style="font-size:12px;color:#868e96;margin-top:6px;max-height:80px;overflow-y:auto;"></div>
+      </div>
+      <button type="button" class="btn-limpar" id="btn-ver-credenciados-plenaria" onclick="abrirModalCredenciadosPlenaria()" style="width:100%;">Ver todos os credenciados na plenária</button>
+    </div>
+    <div id="painel-alimentacao" class="form-group">
+      <label>Tipo de refeição</label>
+      <select id="tipo-refeicao">
+        <option value="cafe">Café</option>
+        <option value="almoco">Almoço</option>
+        <option value="jantar">Jantar</option>
+      </select>
+    </div>
+    <div id="painel-competicao" class="form-group" style="display:none;">
+      <label>Modalidade</label>
+      <select id="modalidade-competicao">
+        <option value="">Carregando...</option>
+      </select>
+      <button type="button" class="btn-limpar" id="btn-ver-credenciados" onclick="abrirModalCredenciados()" style="margin-top:10px;width:100%;">Ver credenciados</button>
+    </div>
+    <div id="modal-credenciados">
+      <div class="modal-credenciados-box">
+        <div class="modal-credenciados-header">
+          <h3 id="modal-credenciados-titulo">Credenciados na modalidade</h3>
+          <button type="button" class="btn-fechar-modal" onclick="fecharModalCredenciados()">Fechar</button>
+        </div>
+        <div class="modal-credenciados-filtro">
+          <label style="font-size:12px;color:#adb5bd;">Filtrar por clube</label>
+          <select id="modal-credenciados-clube">
+            <option value="">Todos os clubes</option>
+          </select>
+        </div>
+        <div class="modal-credenciados-lista" id="modal-credenciados-lista" style="min-height:120px;"></div>
+      </div>
+    </div>
+    <div id="modal-credenciados-plenaria" style="position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.7);">
+      <div class="modal-credenciados-box" style="background:#0a2d42;border-radius:12px;max-width:480px;width:100%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="modal-credenciados-header" style="padding:16px;border-bottom:1px solid #495057;">
+          <h3 style="margin:0;font-size:18px;">Credenciados na plenária</h3>
+          <button type="button" class="btn-fechar-modal" onclick="fecharModalCredenciadosPlenaria()">Fechar</button>
+        </div>
+        <div class="modal-credenciados-filtro" style="padding:12px 16px;border-bottom:1px solid #495057;">
+          <label style="font-size:12px;color:#adb5bd;">Filtrar por clube</label>
+          <select id="modal-plenaria-clube">
+            <option value="">Todos os clubes</option>
+          </select>
+        </div>
+        <div id="modal-plenaria-lista" style="padding:12px;overflow-y:auto;flex:1;min-height:120px;"></div>
+      </div>
+    </div>
+    <div id="resultado"></div>
+    <div id="erro-container"></div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    (function() {
+      var BATCH_SIZE = 25;
+      var BLOQUEIO_MESMO_QR_MS = 800;
+      var BLOQUEIO_REJEICAO_MS = 10000;
+      var CACHE_BLOQUEIO_TTL_MS = 30 * 60 * 1000;
+      var OVERLAY_DURATION = 500;
+      var OVERLAY_ENVIO_DURATION = 2500;
+      var OVERLAY_ERRO_DURATION = 2000;
+      var html5QrCode = null;
+      var processando = false;
+
+      if (typeof EVENTO_NOME !== 'undefined' && EVENTO_NOME) {
+        var tituloEl = document.getElementById('scanner-titulo');
+        var eventoNomeEl = document.getElementById('scanner-evento-nome');
+        if (tituloEl) tituloEl.textContent = 'Scanner – Passaporte – ' + EVENTO_NOME;
+        if (eventoNomeEl) { eventoNomeEl.textContent = EVENTO_NOME; eventoNomeEl.style.display = 'block'; }
+        if (document.title && document.title.indexOf('Scanner') === 0) document.title = 'Scanner Passaporte – ' + EVENTO_NOME + ' | LEO Portal';
+      } else {
+        var eventoNomeEl = document.getElementById('scanner-evento-nome');
+        if (eventoNomeEl) eventoNomeEl.style.display = 'none';
+      }
+
+      var statusEl = document.getElementById('status');
+      var erroContainer = document.getElementById('erro-container');
+      var filaContadorEl = document.getElementById('fila-contador');
+      var btnEnviar = document.getElementById('btn-enviar');
+
+      function mostrarErro(msg) {
+        if (erroContainer) erroContainer.innerHTML = '<div class="erro-msg">' + String(msg).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+        if (statusEl) statusEl.textContent = msg;
+      }
+
+      var STORE_KEY = 'leo_scanner_fila_' + (EVENTO_ID || 'default');
+      var CACHE_CRED_KEY = 'leo_scanner_cache_credenciamento_' + (EVENTO_ID || 'default');
+      var CACHE_ALIMENTACAO_KEY = 'leo_scanner_cache_alimentacao_' + (EVENTO_ID || 'default');
+      var CACHE_BLOQUEIO_KEY = 'leo_scanner_bloqueios_' + (EVENTO_ID || 'default');
+      var CACHE_TTL_MS = 30 * 60 * 1000;
+      var cacheCredenciamento = null;
+      var cacheAlimentacao = null;
+      var cacheCarregamento = { alimentacao: false, credenciamento: false };
+      var cachePronto = false;
+      var cachePlenaria = null;
+      var cachePlenariaPronto = false;
+
+      function atualizarStatusCarregamento() {
+        if (!statusEl) return;
+        var tipoLeituraSelect = document.getElementById('tipo-leitura');
+        var modo = (tipoLeituraSelect && tipoLeituraSelect.value) ? tipoLeituraSelect.value : 'alimentacao';
+        if (modo === 'plenaria') {
+          if (cachePlenariaPronto && cachePlenaria) {
+            cachePronto = true;
+            statusEl.textContent = 'Pronto para escanear (plenária) ✓';
+            statusEl.classList.add('pronto');
+          } else {
+            cachePronto = false;
+            statusEl.textContent = 'Carregando cache da plenária...';
+            statusEl.classList.remove('pronto');
+          }
+          return;
+        }
+        var a = cacheCarregamento.alimentacao;
+        var c = cacheCarregamento.credenciamento;
+        if (a && c) {
+          cachePronto = true;
+          statusEl.textContent = 'Pronto para escanear ✓';
+          statusEl.classList.add('pronto');
+        } else {
+          cachePronto = false;
+          var parts = [];
+          parts.push(a ? 'Alimentação ✓' : 'Alimentação...');
+          parts.push(c ? 'Credenciamento ✓' : 'Credenciamento...');
+          statusEl.textContent = 'Carregando cache (validação local): ' + parts.join(' • ');
+          statusEl.classList.remove('pronto');
+        }
+      }
+
+      function getFila() {
+        try {
+          var raw = localStorage.getItem(STORE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+      }
+
+      function setFila(arr) {
+        try {
+          localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+          atualizarContador();
+        } catch (e) { console.warn('setFila:', e); }
+      }
+
+      function addToFila(item) {
+        var f = getFila();
+        f.push(item);
+        if (f.length > 2000) f = f.slice(-1500);
+        setFila(f);
+      }
+
+      function clearFilaItems(ids) {
+        if (!ids || ids.length === 0) return;
+        var f = getFila();
+        var setIds = {};
+        ids.forEach(function(id) { setIds[id] = true; });
+        f = f.filter(function(x) { return !setIds[x._id]; });
+        setFila(f);
+      }
+
+      function clearFilaAll() {
+        setFila([]);
+      }
+
+      var _idCounter = Date.now();
+      function nextId() { return '_' + (++_idCounter); }
+
+      function atualizarContador() {
+        var n = getFila().length;
+        if (filaContadorEl) filaContadorEl.textContent = n;
+        if (btnEnviar) btnEnviar.disabled = n === 0;
+      }
+
+      function reiniciarScanner() {
+        if (!html5QrCode) return;
+        try {
+          html5QrCode.stop().then(function() {
+            html5QrCode.start(
+              { facingMode: 'environment' },
+              { fps: 18, qrbox: { width: 220, height: 220 } },
+              onScanSuccess,
+              function() {}
+            ).then(function() {
+              if (cacheCarregamento.alimentacao && cacheCarregamento.credenciamento) {
+                atualizarStatusCarregamento();
+              } else if (statusEl) {
+                statusEl.textContent = 'Aponte para o QR Code.';
+                statusEl.classList.remove('pronto');
+              }
+              processando = false;
+            }).catch(function() { processando = false; });
+          }).catch(function() { processando = false; });
+        } catch (e) { processando = false; }
+      }
+
+      window.limparFila = function() {
+        if (getFila().length === 0) return;
+        if (confirm('Limpar todas as leituras pendentes?')) {
+          clearFilaAll();
+          carregarCacheAlimentacao();
+          mostrarOverlayResultado(true, false, 'Fila limpa.');
+          setTimeout(reiniciarScanner, OVERLAY_DURATION + 150);
+        }
+      };
+
+      var overlayLoading = document.getElementById('overlay-loading');
+      var overlayLoadingText = document.getElementById('overlay-loading-text');
+      var overlayResult = document.getElementById('overlay-result');
+      var overlayResultMsg = document.getElementById('overlay-result-msg');
+
+      function mostrarOverlayLoading(mostrar, texto) {
+        if (overlayLoading) {
+          if (mostrar) {
+            if (overlayLoadingText) overlayLoadingText.textContent = texto || 'Enviando...';
+            overlayLoading.classList.add('ativo');
+          } else overlayLoading.classList.remove('ativo');
+        }
+      }
+
+      function mostrarOverlayResultado(ok, isWarning, msg, duracaoMs) {
+        if (!overlayResult || !overlayResultMsg) return;
+        overlayResult.classList.remove('tela-ok', 'tela-err', 'tela-warn');
+        if (ok) overlayResult.classList.add(isWarning ? 'tela-warn' : 'tela-ok');
+        else overlayResult.classList.add('tela-err');
+        overlayResultMsg.textContent = msg || '';
+        overlayResult.classList.add('ativo');
+        var dur = (typeof duracaoMs === 'number' && duracaoMs > 0) ? duracaoMs : OVERLAY_DURATION;
+        setTimeout(function() { overlayResult.classList.remove('ativo'); }, dur);
+      }
+
+      function mostrarFeedbackRapido(ok, msg) {
+        mostrarOverlayResultado(ok, false, msg);
+      }
+
+      function mostrarFeedbackEnvio(ok, msg) {
+        var dur = ok ? OVERLAY_ENVIO_DURATION : OVERLAY_ERRO_DURATION;
+        mostrarOverlayResultado(ok, false, msg, dur);
+        return dur;
+      }
+
+      var resultadoEl = document.getElementById('resultado');
+      function mostrarResultado(ok, msg, isWarning) {
+        if (resultadoEl) {
+          resultadoEl.className = ok ? (isWarning ? 'warn' : 'ok') : 'err';
+          resultadoEl.textContent = msg;
+          resultadoEl.style.display = 'block';
+          setTimeout(function() { resultadoEl.style.display = 'none'; resultadoEl.textContent = ''; }, 4000);
+        }
+      }
+
+      window.enviarFila = function() {
+        var f = getFila();
+        if (f.length === 0) {
+          mostrarFeedbackRapido(true, 'Nada pendente.');
+          return;
+        }
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          mostrarFeedbackRapido(false, 'Página deve ser aberta pelo link do Portal.');
+          return;
+        }
+        var modo = (document.getElementById('tipo-leitura') && document.getElementById('tipo-leitura').value) || 'alimentacao';
+        var alimentacao = f.filter(function(x) { return x.modo === 'alimentacao'; });
+        var competicao = f.filter(function(x) { return x.modo === 'competicao'; });
+        var plenaria = f.filter(function(x) { return x.modo === 'plenaria'; });
+
+        function enviarPlenaria(itens, ids) {
+          if (itens.length === 0) return Promise.resolve({ sucesso: 0, erros: [] });
+          return new Promise(function(res, rej) {
+            google.script.run
+              .withSuccessHandler(function(r) {
+                if (r && typeof r === 'object') {
+                  var sucesso = r.sucesso != null ? r.sucesso : 0;
+                  var erros = r.erros || [];
+                  var idsComErro = {};
+                  (erros || []).forEach(function(e) { if (e && e.inscricaoId) idsComErro[String(e.inscricaoId).toLowerCase()] = true; });
+                  var idsParaRemover = [];
+                  itens.forEach(function(item, idx) {
+                    var idNorm = String(item.inscricaoId || '').toLowerCase();
+                    if (!idsComErro[idNorm]) idsParaRemover.push(ids[idx]);
+                  });
+                  clearFilaItems(idsParaRemover);
+                  if (cachePlenaria && idsParaRemover.length) {
+                    itens.forEach(function(item, idx) {
+                      if (idsParaRemover.indexOf(ids[idx]) === -1) return;
+                      var idNorm = String(item.inscricaoId || '').toLowerCase().trim();
+                      var clube = item.clubeNome || '';
+                      var ehDelegadoNato = item.delegadoNato === true;
+                      cachePlenaria.credentialedSet[idNorm] = true;
+                      if (item.inscricaoId) cachePlenaria.credentialedSet[item.inscricaoId] = true;
+                      if (!ehDelegadoNato) cachePlenaria.countByClube[clube] = (cachePlenaria.countByClube[clube] || 0) + 1;
+                      cachePlenaria.listaCredenciados.push({ inscricaoId: item.inscricaoId, clubeNome: clube, pessoaNome: item.pessoaNome || '—', delegadoNato: ehDelegadoNato });
+                    });
+                    atualizarListaDelegadosPlenaria();
+                  }
+                  res({ sucesso: sucesso, erros: erros });
+                } else rej(new Error(r && r.erro ? r.erro : 'Resposta inválida'));
+              })
+              .withFailureHandler(function(err) {
+                var msg = (err && (typeof err === 'string' ? err : err.message)) ? (typeof err === 'string' ? err : err.message) : 'Erro ao enviar plenária.';
+                rej(new Error(msg));
+              })
+              .credenciarPlenariaLote(EVENTO_ID, itens.map(function(x) { return { inscricaoId: String(x.inscricaoId || '').trim(), delegadoNato: x.delegadoNato === true }; }));
+          });
+        }
+
+        function enviarAlimentacao(itens, ids) {
+          if (itens.length === 0) return Promise.resolve({ processados: 0, sucesso: 0, erros: [] });
+          return new Promise(function(res, rej) {
+            google.script.run
+              .withSuccessHandler(function(r) {
+                if (r && typeof r === 'object') {
+                  var sucesso = r.sucesso != null ? r.sucesso : 0;
+                  var erros = r.erros || [];
+                  var idsParaRemover = [];
+                  if (Array.isArray(erros) && erros.length > 0) {
+                    var chavesComErro = {};
+                    erros.forEach(function(e) {
+                      if (e && e.inscricaoId) {
+                        var k = e.inscricaoId + '|' + (e.tipoRefeicao || '');
+                        chavesComErro[k] = true;
+                      }
+                    });
+                    itens.forEach(function(item, idx) {
+                      var k = (item.inscricaoId || '') + '|' + (item.tipoRefeicao || '');
+                      if (!chavesComErro[k]) idsParaRemover.push(ids[idx]);
+                    });
+                  } else {
+                    idsParaRemover = ids;
+                  }
+                  clearFilaItems(idsParaRemover);
+                  res({ sucesso: sucesso, erros: erros });
+                } else rej(new Error(r && r.erro ? r.erro : 'Resposta inválida'));
+              })
+              .withFailureHandler(function(err) {
+                var msg = 'Erro ao enviar';
+                if (err) {
+                  if (typeof err === 'string') msg = err;
+                  else if (err.message) msg = err.message;
+                  else if (err.stack) msg = String(err.stack).substring(0, 200);
+                }
+                rej(new Error(msg));
+              })
+              .consumirRefeicoesPassaporteLote(EVENTO_ID, itens.map(function(x) { return { inscricaoId: x.inscricaoId, tipoRefeicao: x.tipoRefeicao }; }));
+          });
+        }
+
+        function enviarCompeticao(itens, ids) {
+          if (itens.length === 0) return Promise.resolve({ processados: 0, sucesso: 0, erros: [] });
+          return new Promise(function(res, rej) {
+            google.script.run
+              .withSuccessHandler(function(r) {
+                if (r && typeof r === 'object') {
+                  var sucesso = r.sucesso != null ? r.sucesso : 0;
+                  var erros = r.erros || [];
+                  var idsParaRemover = [];
+                  if (Array.isArray(erros) && erros.length > 0) {
+                    var chavesComErro = {};
+                    erros.forEach(function(e) {
+                      if (e && e.inscricaoId) {
+                        var k = e.inscricaoId + '|' + (e.modalidadeId || '');
+                        chavesComErro[k] = true;
+                      }
+                    });
+                    itens.forEach(function(item, idx) {
+                      var k = (item.inscricaoId || '') + '|' + (item.modalidadeId || '');
+                      if (!chavesComErro[k]) idsParaRemover.push(ids[idx]);
+                    });
+                  } else {
+                    idsParaRemover = ids;
+                  }
+                  clearFilaItems(idsParaRemover);
+                  res({ sucesso: sucesso, erros: erros });
+                } else rej(new Error(r && r.erro ? r.erro : 'Resposta inválida'));
+              })
+              .withFailureHandler(function(err) {
+                var msg = 'Erro ao enviar';
+                if (err) {
+                  if (typeof err === 'string') msg = err;
+                  else if (err.message) msg = err.message;
+                  else if (err.stack) msg = String(err.stack).substring(0, 200);
+                }
+                rej(new Error(msg));
+              })
+              .credenciarInscricoesModalidadeLote(EVENTO_ID, itens.map(function(x) { return { inscricaoId: String(x.inscricaoId || '').trim(), modalidadeId: String(x.modalidadeId || '').trim() }; }));
+          });
+        }
+
+        mostrarOverlayLoading(true, 'Enviando ' + f.length + ' registros...');
+        if (btnEnviar) btnEnviar.classList.add('enviando');
+
+        var promAl = enviarAlimentacao(alimentacao, alimentacao.map(function(x) { return x._id; }));
+        var promCo = enviarCompeticao(competicao, competicao.map(function(x) { return x._id; }));
+        var promPl = enviarPlenaria(plenaria, plenaria.map(function(x) { return x._id; }));
+
+        Promise.all([promAl, promCo, promPl]).then(function(results) {
+          mostrarOverlayLoading(false);
+          if (btnEnviar) btnEnviar.classList.remove('enviando');
+          var sucesso = 0, erros = 0, erroMsgs = [];
+          if (results[0]) { sucesso += results[0].sucesso || 0; (results[0].erros || []).forEach(function(e){ erros++; if (e && e.erro) erroMsgs.push(e.erro); }); }
+          if (results[1]) { sucesso += results[1].sucesso || 0; (results[1].erros || []).forEach(function(e){ erros++; if (e && e.erro) erroMsgs.push(e.erro); }); }
+          if (results[2]) { sucesso += results[2].sucesso || 0; (results[2].erros || []).forEach(function(e){ erros++; if (e && e.erro) erroMsgs.push(e.erro); }); }
+          var pendentes = getFila().length;
+          var msg = sucesso + ' enviados.';
+          if (erros) { msg += ' ' + erros + ' com erro.'; if (erroMsgs.length) msg += ' Ex: ' + erroMsgs[0]; }
+          if (pendentes) msg += ' ' + pendentes + ' pendentes.';
+          var okEnvio = erros === 0 && pendentes === 0;
+          mostrarFeedbackEnvio(okEnvio, msg);
+          cacheCarregamento = { alimentacao: false, credenciamento: false };
+          cachePronto = false;
+          setTimeout(function() {
+            mostrarOverlayLoading(true, 'Recarregando cache (validação local)...');
+            var pendentesRecarga = 2;
+            function concluidoRecarga() {
+              pendentesRecarga--;
+              if (pendentesRecarga <= 0) {
+                mostrarOverlayLoading(false);
+                atualizarStatusCarregamento();
+                setTimeout(reiniciarScanner, 150);
+              }
+            }
+            carregarCacheAlimentacao(function(ok) { cacheCarregamento.alimentacao = true; concluidoRecarga(); }, true);
+            carregarCacheCredenciamento(function(ok) { cacheCarregamento.credenciamento = true; concluidoRecarga(); }, true);
+          }, (okEnvio ? OVERLAY_ENVIO_DURATION : OVERLAY_ERRO_DURATION));
+        }).catch(function(err) {
+          mostrarOverlayLoading(false);
+          if (btnEnviar) btnEnviar.classList.remove('enviando');
+          mostrarFeedbackEnvio(false, (err && err.message) ? err.message : 'Erro ao enviar.');
+          setTimeout(reiniciarScanner, OVERLAY_ERRO_DURATION + 150);
+        });
+      };
+
+      var ultimoScan = '';
+      var bloqueadoAte = 0;
+
+      var UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+      function extrairInscricaoId(texto) {
+        var s = (texto || '').trim();
+        if (!s) return '';
+        if (UUID_REGEX.test(s)) return s.match(UUID_REGEX)[0];
+        try {
+          var json = JSON.parse(s);
+          if (json && (json.inscricaoId || json.inscricao_id || json.id)) {
+            var id = json.inscricaoId || json.inscricao_id || json.id;
+            return UUID_REGEX.test(id) ? id.match(UUID_REGEX)[0] : String(id).trim();
+          }
+        } catch (e) {}
+        var idx = s.indexOf('?');
+        if (idx >= 0) {
+          var params = s.substring(idx + 1).split('&');
+          for (var i = 0; i < params.length; i++) {
+            var p = params[i].split('=');
+            if (p[0] === 'id' && p[1]) {
+              var v = decodeURIComponent(p[1]).trim();
+              return UUID_REGEX.test(v) ? v.match(UUID_REGEX)[0] : v;
+            }
+          }
+        }
+        if (UUID_REGEX.test(s)) return s.match(UUID_REGEX)[0];
+        return s;
+      }
+
+      function liberarProximaLeitura(bloqueioMs) {
+        processando = false;
+        bloqueadoAte = Date.now() + (bloqueioMs && bloqueioMs > 0 ? bloqueioMs : BLOQUEIO_MESMO_QR_MS);
+        try {
+          if (html5QrCode && typeof html5QrCode.resume === 'function') html5QrCode.resume();
+        } catch (e) {}
+      }
+
+      function getCacheBloqueios() {
+        try {
+          var raw = localStorage.getItem(CACHE_BLOQUEIO_KEY);
+          if (!raw) return {};
+          var obj = JSON.parse(raw);
+          if (!obj || typeof obj !== 'object') return {};
+          var agora = Date.now();
+          var limpou = false;
+          for (var k in obj) {
+            if (obj[k] && obj[k].ts && (agora - obj[k].ts) > CACHE_BLOQUEIO_TTL_MS) {
+              delete obj[k];
+              limpou = true;
+            }
+          }
+          if (limpou) setCacheBloqueios(obj);
+          return obj;
+        } catch (e) { return {}; }
+      }
+
+      function setCacheBloqueios(obj) {
+        try {
+          localStorage.setItem(CACHE_BLOQUEIO_KEY, JSON.stringify(obj));
+        } catch (e) {}
+      }
+
+      function adicionarAoCacheBloqueio(chave, msg) {
+        try {
+          var obj = getCacheBloqueios();
+          obj[chave] = { ts: Date.now(), msg: msg || 'Bloqueado.' };
+          setCacheBloqueios(obj);
+        } catch (e) {}
+      }
+
+      function adicionarAposValidacao(id, modo, tipoRefeicao, modalidadeId, validacaoOk, msg) {
+        liberarProximaLeitura();
+        if (!validacaoOk) {
+          mostrarFeedbackRapido(false, msg || 'Não autorizado.');
+          return;
+        }
+        var idKey = String(id || '').toLowerCase().trim();
+        if (modo === 'alimentacao' && cacheAlimentacao && cacheAlimentacao.mapaSaldo && (cacheAlimentacao.mapaSaldo[idKey] || cacheAlimentacao.mapaSaldo[id]) && tipoRefeicao) {
+          var d = cacheAlimentacao.mapaSaldo[idKey] || cacheAlimentacao.mapaSaldo[id];
+          if (typeof d[tipoRefeicao] === 'number' && d[tipoRefeicao] > 0) {
+            d[tipoRefeicao] = d[tipoRefeicao] - 1;
+            setCacheAlimentacao(cacheAlimentacao);
+          }
+        }
+        addToFila(modo === 'competicao'
+          ? { _id: nextId(), inscricaoId: id, modalidadeId: modalidadeId, modo: 'competicao', ts: Date.now() }
+          : { _id: nextId(), inscricaoId: id, tipoRefeicao: tipoRefeicao, modo: 'alimentacao', ts: Date.now() });
+        mostrarFeedbackRapido(true, msg || (modo === 'competicao' ? 'Credenciamento em fila' : 'Refeição em fila'));
+        var total = getFila().length;
+        if (total >= BATCH_SIZE) setTimeout(function() { window.enviarFila(); }, 100);
+      }
+
+      function onScanSuccess(decodedText) {
+        var tipoLeituraSelect = document.getElementById('tipo-leitura');
+        var modo = (tipoLeituraSelect && tipoLeituraSelect.value) ? tipoLeituraSelect.value : 'alimentacao';
+        if (modo !== 'plenaria' && !cachePronto) return;
+        var id = extrairInscricaoId(decodedText || '');
+        if (!id) return;
+        if (!UUID_REGEX.test(id)) {
+          mostrarFeedbackRapido(false, 'QR inválido. Use o passaporte gerado pelo Portal.');
+          return;
+        }
+        if (processando) return;
+        if (Date.now() < bloqueadoAte && id === ultimoScan) return;
+        ultimoScan = id;
+        processando = true;
+        setTimeout(function processarLeitura() {
+          try {
+            var tipoLeituraSelect = document.getElementById('tipo-leitura');
+        var tipoSelect = document.getElementById('tipo-refeicao');
+        var modalidadeSelect = document.getElementById('modalidade-competicao');
+        var modo = (tipoLeituraSelect && tipoLeituraSelect.value) ? tipoLeituraSelect.value : 'alimentacao';
+
+        if (modo === 'competicao') {
+          var modId = (modalidadeSelect && modalidadeSelect.value) ? modalidadeSelect.value : '';
+          if (!modId) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, 'Selecione uma modalidade.');
+            return;
+          }
+          var chaveBloqueio = id + '|' + modId;
+          var cacheBloqueios = getCacheBloqueios();
+          if (cacheBloqueios[chaveBloqueio] && cacheBloqueios[chaveBloqueio].msg) {
+            liberarProximaLeitura(BLOQUEIO_REJEICAO_MS);
+            mostrarFeedbackRapido(false, cacheBloqueios[chaveBloqueio].msg);
+            return;
+          }
+          var cache = cacheCredenciamento || getCacheCredenciamento();
+          if (cache) cacheCredenciamento = cache;
+          var cacheCompleto = cache && cache.mapaCredenciados && cache.mapaParticipou !== undefined && cache.mapaBloqueios !== undefined;
+          if (!cacheCompleto) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, 'Aguarde. Dados do evento ainda carregando.');
+            return;
+          }
+          function buscarAptoPorId(idd) {
+            var m = cache.mapaApto || {};
+            if (m[idd]) return { apto: m[idd], idCanonico: idd };
+            var iddNorm = String(idd || '').toLowerCase().trim();
+            if (m[iddNorm]) return { apto: m[iddNorm], idCanonico: iddNorm };
+            for (var k in m) {
+              if (String(k || '').toLowerCase().trim() === iddNorm) return { apto: m[k], idCanonico: k };
+            }
+            return null;
+          }
+          var res = buscarAptoPorId(id);
+          var aptoData = res ? res.apto : null;
+          var idCanonico = res ? res.idCanonico : id;
+          if (!aptoData) {
+            liberarProximaLeitura();
+            if (cacheCarregamento && cacheCarregamento.credenciamento) {
+              carregarCacheCredenciamento(function() {}, true);
+              mostrarFeedbackRapido(false, 'Não encontrado no cache. Lista atualizada – escaneie novamente.');
+            } else {
+              mostrarFeedbackRapido(false, 'Inscrição não encontrada no evento.');
+            }
+            return;
+          }
+          var apto = (aptoData.aptoACompetir) ? String(aptoData.aptoACompetir).trim() : '';
+          var nome = aptoData.pessoaNome || '';
+          if (apto !== 'Sim') {
+            var msg = nome ? nome + ': ' : '';
+            if (apto === 'Apenas Coletivas') msg += 'Só participa de provas coletivas.';
+            else if (aptoData.naoEncontradoRTMA) msg += 'Não encontrado no RTMA ou sem data de posse.';
+            else if (apto === 'Não' || !apto) msg += 'Não apto a competir (data de posse/corte).';
+            else msg += apto;
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, msg);
+            return;
+          }
+          var jaNaFila = getFila().some(function(x) { return x.modo === 'competicao' && (String(x.inscricaoId) === String(id) || String(x.inscricaoId) === String(idCanonico)) && String(x.modalidadeId) === String(modId); });
+          if (jaNaFila) {
+            adicionarAoCacheBloqueio(chaveBloqueio, (nome ? nome + ': ' : '') + 'Já na fila para esta modalidade.');
+            liberarProximaLeitura(BLOQUEIO_REJEICAO_MS);
+            mostrarFeedbackRapido(false, (nome ? nome + ': ' : '') + 'Já na fila para esta modalidade.');
+            return;
+          }
+          if (cache.mapaCredenciados[id + '|' + modId] || cache.mapaCredenciados[idCanonico + '|' + modId]) {
+            var msgCred = (nome ? nome + ': ' : '') + 'Já credenciado nesta modalidade.';
+            adicionarAoCacheBloqueio(chaveBloqueio, msgCred);
+            liberarProximaLeitura(BLOQUEIO_REJEICAO_MS);
+            mostrarFeedbackRapido(false, msgCred);
+            return;
+          }
+          var participou = cache.mapaParticipou[id] || cache.mapaParticipou[idCanonico] || [];
+          var bloqueado = false;
+          for (var pi = 0; pi < participou.length; pi++) {
+            var bloqs = cache.mapaBloqueios[participou[pi]] || [];
+            if (bloqs.some(function(b) { return String(b) === String(modId); })) {
+              bloqueado = true;
+              break;
+            }
+          }
+          if (bloqueado) {
+            var msgBloq = (nome ? nome + ': ' : '') + 'Não pode: participou de modalidade que bloqueia esta.';
+            adicionarAoCacheBloqueio(chaveBloqueio, msgBloq);
+            liberarProximaLeitura(BLOQUEIO_REJEICAO_MS);
+            mostrarFeedbackRapido(false, msgBloq);
+            return;
+          }
+          var msgOk = (nome ? nome + ': ' : '') + 'Pode credenciar ✓ → Adicionado à fila';
+          mostrarFeedbackRapido(true, msgOk);
+          adicionarAposValidacao(idCanonico || id, 'competicao', null, modId, true, msgOk);
+        } else if (modo === 'plenaria') {
+          if (!cachePlenariaPronto || !cachePlenaria) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, 'Aguarde. Cache da plenária carregando.');
+            return;
+          }
+          var idNorm = String(id || '').toLowerCase().trim();
+          var clube = cachePlenaria.clubeByInscricao[idNorm] || cachePlenaria.clubeByInscricao[id];
+          if (!clube) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, 'Inscrição não encontrada no evento.');
+            return;
+          }
+          if (cachePlenaria.credentialedSet[idNorm] || cachePlenaria.credentialedSet[id]) {
+            var nomeJa = cachePlenaria.nomeByInscricao[idNorm] || cachePlenaria.nomeByInscricao[id] || '';
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, (nomeJa ? nomeJa + ': ' : '') + 'Já credenciado na plenária.');
+            return;
+          }
+          var jaNaFilaPlenaria = getFila().some(function(x) { return x.modo === 'plenaria' && (String(x.inscricaoId || '').toLowerCase() === idNorm || String(x.inscricaoId) === id); });
+          if (jaNaFilaPlenaria) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, 'Já na fila para enviar.');
+            return;
+          }
+          var pessoaNome = cachePlenaria.nomeByInscricao[idNorm] || cachePlenaria.nomeByInscricao[id] || '';
+          var ehDelegadoNato = cachePlenaria.pastPresidentesSet && cachePlenaria.pastPresidentesSet[(clube || '').toLowerCase() + '|' + (pessoaNome || '').toLowerCase()];
+          var limite = cachePlenaria.limitByClube[clube];
+          if (typeof limite !== 'number' || limite < 1) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, (pessoaNome ? pessoaNome + ': ' : '') + 'O clube não possui direito a delegados (Art. 52).');
+            return;
+          }
+          var jaCred = cachePlenaria.countByClube[clube] || 0;
+          var naFilaClube = getFila().filter(function(x) { return x.modo === 'plenaria' && (x.clubeNome || '') === clube && !(x.delegadoNato === true); }).length;
+          if (!ehDelegadoNato && (jaCred + naFilaClube) >= limite) {
+            liberarProximaLeitura();
+            mostrarFeedbackRapido(false, (pessoaNome ? pessoaNome + ': ' : '') + 'Limite de delegados do clube atingido (ou na fila).');
+            return;
+          }
+          addToFila({ _id: nextId(), inscricaoId: id, clubeNome: clube, pessoaNome: pessoaNome, delegadoNato: ehDelegadoNato === true, modo: 'plenaria', ts: Date.now() });
+          mostrarFeedbackRapido(true, (pessoaNome ? pessoaNome + ': ' : '') + (ehDelegadoNato ? 'Delegado Nato → Adicionado à fila' : 'Delegado → Adicionado à fila'));
+          var total = getFila().length;
+          if (total >= BATCH_SIZE) setTimeout(function() { window.enviarFila(); }, 100);
+          liberarProximaLeitura();
+        } else {
+          var tipo = (tipoSelect && tipoSelect.value) ? tipoSelect.value : 'almoco';
+          var cacheAli = cacheAlimentacao || getCacheAlimentacao();
+          if (cacheAli) cacheAlimentacao = cacheAli;
+          var idLookup = String(id || '').toLowerCase().trim();
+          var dados = cacheAli && cacheAli.mapaSaldo ? (cacheAli.mapaSaldo[idLookup] || cacheAli.mapaSaldo[id]) : null;
+          if (dados) {
+            var saldo = (typeof dados[tipo] === 'number') ? dados[tipo] : 0;
+            var nome = dados.pessoaNome || '';
+            if (saldo >= 1) {
+              adicionarAposValidacao(id, 'alimentacao', tipo, null, true);
+            } else {
+              var msgAli = nome ? nome + ': ' : '';
+              msgAli += 'Sem saldo para ' + (tipo === 'cafe' ? 'café' : tipo === 'almoco' ? 'almoço' : 'jantar') + '.';
+              liberarProximaLeitura();
+              mostrarFeedbackRapido(false, msgAli);
+            }
+            return;
+          }
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run
+              .withSuccessHandler(function(r) {
+                if (r && r.ok) {
+                  adicionarAposValidacao(id, 'alimentacao', tipo, null, true);
+                } else {
+                  liberarProximaLeitura();
+                  mostrarFeedbackRapido(false, (r && r.pessoaNome ? r.pessoaNome + ': ' : '') + (r && r.erro ? r.erro : 'Sem saldo.'));
+                }
+              })
+              .withFailureHandler(function(err) {
+                liberarProximaLeitura();
+                mostrarFeedbackRapido(false, (err && err.message) ? err.message : 'Erro ao validar saldo.');
+              })
+              .validarSaldoRefeicaoPassaporte(id, EVENTO_ID, tipo);
+          } else {
+            adicionarAposValidacao(id, 'alimentacao', tipo, null, true);
+          }
+        }
+          } catch (e) {
+            processando = false;
+            liberarProximaLeitura();
+          }
+        }, 0);
+      }
+
+      function getCacheCredenciamento() {
+        try {
+          var raw = localStorage.getItem(CACHE_CRED_KEY);
+          if (!raw) return null;
+          var obj = JSON.parse(raw);
+          if (!obj || !obj.mapaApto) return null;
+          if (obj.timestamp && (Date.now() - obj.timestamp) > CACHE_TTL_MS) return null;
+          return obj;
+        } catch (e) { return null; }
+      }
+
+      function setCacheCredenciamento(obj) {
+        try {
+          localStorage.setItem(CACHE_CRED_KEY, JSON.stringify(obj));
+          cacheCredenciamento = obj;
+        } catch (e) {}
+      }
+
+      function getCacheAlimentacao() {
+        try {
+          var raw = localStorage.getItem(CACHE_ALIMENTACAO_KEY);
+          if (!raw) return null;
+          var obj = JSON.parse(raw);
+          if (!obj || !obj.mapaSaldo) return null;
+          if (obj.timestamp && (Date.now() - obj.timestamp) > CACHE_TTL_MS) return null;
+          return obj;
+        } catch (e) { return null; }
+      }
+
+      function setCacheAlimentacao(obj) {
+        try {
+          localStorage.setItem(CACHE_ALIMENTACAO_KEY, JSON.stringify(obj));
+          cacheAlimentacao = obj;
+        } catch (e) {}
+      }
+
+      function carregarCacheAlimentacao(cb, forceRefresh) {
+        if (!forceRefresh) {
+          var cached = getCacheAlimentacao();
+          if (cached && cached.mapaSaldo && Object.keys(cached.mapaSaldo).length > 0) {
+            cacheAlimentacao = cached;
+            if (cb) cb(true);
+            return;
+          }
+        }
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          if (cb) cb(false);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (r && r.mapaSaldo) {
+              setCacheAlimentacao(r);
+              if (cb) cb(true);
+            } else {
+              if (cb) cb(false);
+            }
+          })
+          .withFailureHandler(function() { if (cb) cb(false); })
+          .obterCacheValidacaoAlimentacao(EVENTO_ID);
+      }
+
+      function carregarCacheCredenciamento(cb, forceRefresh) {
+        if (!forceRefresh) {
+          var cached = getCacheCredenciamento();
+          var cacheValido = cached && cached.mapaApto && Object.keys(cached.mapaApto).length > 0 &&
+            cached.mapaCredenciados && cached.mapaParticipou !== undefined && cached.mapaBloqueios !== undefined;
+          if (cacheValido) {
+            cacheCredenciamento = cached;
+            if (cb) cb(true);
+            return;
+          }
+        }
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          if (cb) cb(false);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (r && r.mapaApto) {
+              setCacheCredenciamento(r);
+              if (cb) cb(true);
+            } else {
+              if (cb) cb(false);
+            }
+          })
+          .withFailureHandler(function() { if (cb) cb(false); })
+          .obterCacheValidacaoCredenciamento(EVENTO_ID);
+      }
+
+      function carregarDadosIniciais(cb) {
+        if (!EVENTO_ID) {
+          if (cb) cb();
+          return;
+        }
+        cacheCarregamento = { alimentacao: false, credenciamento: false };
+        atualizarStatusCarregamento();
+        var pendentes = 2;
+        function atualizarTextoLoading() {
+          var a = cacheCarregamento.alimentacao;
+          var c = cacheCarregamento.credenciamento;
+          var txt = 'Carregando cache do banco… ' + (a ? 'Alimentação ✓' : 'Alimentação…') + ' • ' + (c ? 'Credenciamento ✓' : 'Credenciamento…');
+          mostrarOverlayLoading(true, txt);
+        }
+        function concluido() {
+          pendentes--;
+          atualizarTextoLoading();
+          if (pendentes <= 0 && cb) cb();
+        }
+        mostrarOverlayLoading(true, 'Carregando cache do banco… Alimentação… • Credenciamento…');
+        carregarCacheAlimentacao(function(ok) {
+          cacheCarregamento.alimentacao = true;
+          atualizarStatusCarregamento();
+          concluido();
+        });
+        carregarCacheCredenciamento(function(ok) {
+          cacheCarregamento.credenciamento = true;
+          atualizarStatusCarregamento();
+          concluido();
+        });
+        carregarModalidadesEvento();
+      }
+
+      function atualizarPainelTipo() {
+        var tipoLeituraSelect = document.getElementById('tipo-leitura');
+        var painelAlimentacao = document.getElementById('painel-alimentacao');
+        var painelCompeticao = document.getElementById('painel-competicao');
+        var painelPlenaria = document.getElementById('painel-plenaria');
+        var modalidadeSelect = document.getElementById('modalidade-competicao');
+        var modo = (tipoLeituraSelect && tipoLeituraSelect.value) ? tipoLeituraSelect.value : 'alimentacao';
+        if (painelAlimentacao) painelAlimentacao.style.display = modo === 'alimentacao' ? 'block' : 'none';
+        if (painelCompeticao) painelCompeticao.style.display = modo === 'competicao' ? 'block' : 'none';
+        if (painelPlenaria) painelPlenaria.style.display = modo === 'plenaria' ? 'block' : 'none';
+        if (modo === 'competicao' && EVENTO_ID) {
+          carregarModalidadesEvento();
+          carregarCacheCredenciamento();
+        }
+        if (modo === 'plenaria' && EVENTO_ID) {
+          carregarCachePlenaria();
+        }
+      }
+
+      function construirCachePlenariaLocal(dados) {
+        if (!dados) return null;
+        var limitByClube = dados.limitByClube || {};
+        var credenciados = dados.credenciados || [];
+        var inscricoes = dados.inscricoes || [];
+        var pastPresidentes = dados.pastPresidentes || [];
+        var clubeByInscricao = {};
+        var nomeByInscricao = {};
+        inscricoes.forEach(function(i) {
+          var id = String(i.id || '').trim().toLowerCase();
+          if (id) {
+            clubeByInscricao[id] = (i.clubeNome || '').trim();
+            nomeByInscricao[id] = (i.pessoaNome || '').trim();
+          }
+        });
+        var pastPresidentesSet = {};
+        pastPresidentes.forEach(function(p) {
+          var k = (String(p.clubeNome || '').trim().toLowerCase()) + '|' + (String(p.pessoaNome || '').trim().toLowerCase());
+          if (k !== '|') pastPresidentesSet[k] = true;
+        });
+        var credentialedSet = {};
+        var countByClube = {};
+        var listaCredenciados = [];
+        credenciados.forEach(function(c) {
+          var id = String(c.inscricaoId || '').trim().toLowerCase();
+          if (!id) return;
+          credentialedSet[id] = true;
+          var clube = (c.clubeNome || '').trim();
+          var delegadoNato = !!(c.delegadoNato === true);
+          if (clube && !delegadoNato) countByClube[clube] = (countByClube[clube] || 0) + 1;
+          listaCredenciados.push({ inscricaoId: c.inscricaoId, clubeNome: clube, pessoaNome: (c.pessoaNome || '').trim() || '—', delegadoNato: delegadoNato });
+        });
+        return { limitByClube: limitByClube, clubeByInscricao: clubeByInscricao, nomeByInscricao: nomeByInscricao, credentialedSet: credentialedSet, countByClube: countByClube, listaCredenciados: listaCredenciados, pastPresidentesSet: pastPresidentesSet };
+      }
+
+      function atualizarListaDelegadosPlenaria() {
+        var totalEl = document.getElementById('plenaria-total');
+        var ultimosEl = document.getElementById('plenaria-ultimos');
+        if (!totalEl) return;
+        if (!cachePlenaria || !cachePlenaria.listaCredenciados) {
+          totalEl.textContent = '0';
+          if (ultimosEl) ultimosEl.innerHTML = '';
+          return;
+        }
+        var lista = cachePlenaria.listaCredenciados;
+        totalEl.textContent = lista.length;
+        if (ultimosEl) {
+          var ultimos = lista.slice(-8).reverse();
+          ultimosEl.innerHTML = ultimos.length === 0 ? '' : ultimos.map(function(c) { return (c.pessoaNome || '—') + ' · ' + (c.clubeNome || '—'); }).join('<br>');
+        }
+      }
+
+      function carregarCachePlenaria() {
+        cachePlenariaPronto = false;
+        cachePlenaria = null;
+        atualizarStatusCarregamento();
+        atualizarListaDelegadosPlenaria();
+        if (!EVENTO_ID || typeof google === 'undefined' || !google.script || !google.script.run) {
+          cachePlenariaPronto = true;
+          atualizarStatusCarregamento();
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(dados) {
+            cachePlenaria = construirCachePlenariaLocal(dados);
+            cachePlenariaPronto = true;
+            atualizarStatusCarregamento();
+            atualizarListaDelegadosPlenaria();
+          })
+          .withFailureHandler(function() {
+            cachePlenaria = null;
+            cachePlenariaPronto = true;
+            atualizarStatusCarregamento();
+          })
+          .obterCachePlenaria(EVENTO_ID);
+      }
+
+      function carregarModalidadesEvento() {
+        var modalidadeSelect = document.getElementById('modalidade-competicao');
+        if (!modalidadeSelect || !EVENTO_ID) return;
+        modalidadeSelect.innerHTML = '<option value="">Carregando...</option>';
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          modalidadeSelect.innerHTML = '<option value="">—</option>';
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function(lista) {
+            if (!modalidadeSelect) return;
+            modalidadeSelect.innerHTML = '<option value="">Selecione a modalidade</option>';
+            (lista || []).forEach(function(m) {
+              var id = m.modalidadeId || (m.modalidade && m.modalidade.id);
+              if (!id) return;
+              var nomeM = (m.modalidade && m.modalidade.nome) || m.nome || '';
+              var catM = (m.modalidade && m.modalidade.categoria) || m.categoria || 'Misto';
+              var opt = document.createElement('option');
+              opt.value = id;
+              opt.textContent = nomeM + (catM ? ' (' + catM + ')' : '');
+              modalidadeSelect.appendChild(opt);
+            });
+          })
+          .withFailureHandler(function() { if (modalidadeSelect) modalidadeSelect.innerHTML = '<option value="">Erro ao carregar</option>'; })
+          .listarModalidadesEvento(EVENTO_ID);
+      }
+
+      var tipoLeituraSelect = document.getElementById('tipo-leitura');
+      if (tipoLeituraSelect) tipoLeituraSelect.addEventListener('change', atualizarPainelTipo);
+
+      var modalCredenciadosLista = [];
+      function abrirModalCredenciados() {
+        var modalidadeSelect = document.getElementById('modalidade-competicao');
+        var modId = (modalidadeSelect && modalidadeSelect.value) ? modalidadeSelect.value : '';
+        if (!modId) {
+          mostrarFeedbackRapido(false, 'Selecione uma modalidade.');
+          return;
+        }
+        var modal = document.getElementById('modal-credenciados');
+        var listaEl = document.getElementById('modal-credenciados-lista');
+        var filtroClube = document.getElementById('modal-credenciados-clube');
+        var titulo = document.getElementById('modal-credenciados-titulo');
+        if (!modal || !listaEl) return;
+        var nomeMod = (modalidadeSelect && modalidadeSelect.options[modalidadeSelect.selectedIndex]) ? modalidadeSelect.options[modalidadeSelect.selectedIndex].text : 'Modalidade';
+        if (titulo) titulo.textContent = 'Credenciados – ' + nomeMod;
+        modal.classList.add('ativo');
+        listaEl.innerHTML = '<div class="modal-credenciados-vazio">Carregando...</div>';
+        if (filtroClube) filtroClube.innerHTML = '<option value="">Todos os clubes</option>';
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          listaEl.innerHTML = '<div class="modal-credenciados-vazio">Página deve ser aberta pelo link do Portal.</div>';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(creds) {
+          modalCredenciadosLista = Array.isArray(creds) ? creds : [];
+          var clubes = [];
+          var seen = {};
+          modalCredenciadosLista.forEach(function(c) {
+            var cl = (c.clubeNome || '').trim() || 'Sem clube';
+            if (!seen[cl]) { seen[cl] = true; clubes.push(cl); }
+          });
+          clubes.sort();
+          if (filtroClube) {
+            clubes.forEach(function(cl) {
+              var opt = document.createElement('option');
+              opt.value = cl;
+              opt.textContent = cl;
+              filtroClube.appendChild(opt);
+            });
+            filtroClube.onchange = renderizarListaCredenciados;
+          }
+          renderizarListaCredenciados();
+        }).withFailureHandler(function() {
+          listaEl.innerHTML = '<div class="modal-credenciados-vazio">Erro ao carregar.</div>';
+        }).listarCredenciadosModalidade(EVENTO_ID, modId);
+      }
+
+      function renderizarListaCredenciados() {
+        var listaEl = document.getElementById('modal-credenciados-lista');
+        var filtroClube = document.getElementById('modal-credenciados-clube');
+        var modalidadeSelect = document.getElementById('modalidade-competicao');
+        var modId = (modalidadeSelect && modalidadeSelect.value) ? modalidadeSelect.value : '';
+        if (!listaEl || !modId) return;
+        var clubeFiltro = (filtroClube && filtroClube.value) ? String(filtroClube.value).trim() : '';
+        var filtrados = !clubeFiltro ? modalCredenciadosLista : modalCredenciadosLista.filter(function(c) {
+          return String(c.clubeNome || '').trim() === clubeFiltro;
+        });
+        if (filtrados.length === 0) {
+          listaEl.innerHTML = '<div class="modal-credenciados-vazio">' + (clubeFiltro ? 'Nenhum credenciado deste clube.' : 'Nenhum credenciado nesta modalidade.') + '</div>';
+          return;
+        }
+        listaEl.innerHTML = '';
+        filtrados.forEach(function(c) {
+          var div = document.createElement('div');
+          div.className = 'cred-item';
+          div.innerHTML = '<div class="cred-item-info"><div class="cred-item-nome">' + String(c.pessoaNome || '').replace(/</g, '&lt;') + '</div><div class="cred-item-clube">' + String(c.clubeNome || '').replace(/</g, '&lt;') + '</div></div><button type="button" class="btn-excluir-cred" data-inscricao-id="' + String(c.inscricaoId || '').replace(/"/g, '&quot;') + '">Excluir</button>';
+          var btn = div.querySelector('.btn-excluir-cred');
+          if (btn) btn.onclick = function() { excluirCredenciado(c.inscricaoId, modId, div); };
+          listaEl.appendChild(div);
+        });
+      }
+
+      function excluirCredenciado(inscricaoId, modId, rowEl) {
+        if (!inscricaoId || !modId) return;
+        var btn = rowEl ? rowEl.querySelector('.btn-excluir-cred') : null;
+        if (btn) btn.disabled = true;
+        if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+        google.script.run.withSuccessHandler(function(r) {
+          if (r && r.ok) {
+            modalCredenciadosLista = modalCredenciadosLista.filter(function(c) { return String(c.inscricaoId) !== String(inscricaoId); });
+            var chaveBloqueio = inscricaoId + '|' + modId;
+            try {
+              var obj = getCacheBloqueios();
+              if (obj[chaveBloqueio]) { delete obj[chaveBloqueio]; setCacheBloqueios(obj); }
+            } catch (e) {}
+            renderizarListaCredenciados();
+            carregarCacheCredenciamento(function() {}, true);
+          } else {
+            mostrarFeedbackRapido(false, (r && r.erro) ? r.erro : 'Erro ao excluir.');
+            if (btn) btn.disabled = false;
+          }
+        }).withFailureHandler(function() {
+          mostrarFeedbackRapido(false, 'Erro ao excluir.');
+          if (btn) btn.disabled = false;
+        }).removerCredenciamentoModalidade(inscricaoId, EVENTO_ID, modId);
+      }
+
+      window.abrirModalCredenciados = abrirModalCredenciados;
+      window.fecharModalCredenciados = function() {
+        var modal = document.getElementById('modal-credenciados');
+        if (modal) modal.classList.remove('ativo');
+      };
+
+      var modalPlenariaLista = [];
+      function renderizarListaPlenaria() {
+        var sel = document.getElementById('modal-plenaria-clube');
+        var filtroClube = (sel && sel.value) ? sel.value : '';
+        var itens = filtroClube ? modalPlenariaLista.filter(function(c) { return (c.clubeNome || '') === filtroClube; }) : modalPlenariaLista;
+        var cont = document.getElementById('modal-plenaria-lista');
+        if (!cont) return;
+        cont.innerHTML = '';
+        if (itens.length === 0) {
+          cont.appendChild(document.createTextNode('Nenhum credenciado na plenária' + (filtroClube ? ' para este clube.' : '.')));
+          return;
+        }
+        itens.forEach(function(c) {
+          var div = document.createElement('div');
+          div.className = 'item-cred-plenaria';
+          div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #495057;';
+          var txt = document.createElement('span');
+          txt.textContent = (c.pessoaNome || '—') + ' · ' + (c.clubeNome || '—');
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = 'Excluir';
+          btn.className = 'btn-excluir-cred';
+          btn.style.cssText = 'font-size:12px;padding:4px 8px;';
+          btn.onclick = function() { excluirCredenciadoPlenaria(c.inscricaoId, div); };
+          div.appendChild(txt);
+          div.appendChild(btn);
+          cont.appendChild(div);
+        });
+      }
+      function excluirCredenciadoPlenaria(inscricaoId, rowEl) {
+        if (!inscricaoId) return;
+        var btn = rowEl ? rowEl.querySelector('.btn-excluir-cred') : null;
+        if (btn) btn.disabled = true;
+        if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+        google.script.run.withSuccessHandler(function(r) {
+          if (r && r.ok) {
+            var idNorm = String(inscricaoId).toLowerCase().trim();
+            var clubeRem = null;
+            for (var i = 0; i < modalPlenariaLista.length; i++) {
+              if (String(modalPlenariaLista[i].inscricaoId).toLowerCase() === idNorm) { clubeRem = modalPlenariaLista[i].clubeNome; break; }
+            }
+            modalPlenariaLista = modalPlenariaLista.filter(function(c) { return String(c.inscricaoId) !== String(inscricaoId); });
+            if (cachePlenaria && clubeRem !== undefined && clubeRem !== null) {
+              delete cachePlenaria.credentialedSet[idNorm];
+              delete cachePlenaria.credentialedSet[inscricaoId];
+              cachePlenaria.countByClube[clubeRem] = Math.max(0, (cachePlenaria.countByClube[clubeRem] || 1) - 1);
+              cachePlenaria.listaCredenciados = cachePlenaria.listaCredenciados.filter(function(c) { return String(c.inscricaoId).toLowerCase() !== idNorm; });
+              atualizarListaDelegadosPlenaria();
+            }
+            renderizarListaPlenaria();
+          } else {
+            mostrarFeedbackRapido(false, (r && r.erro) ? r.erro : 'Erro ao excluir.');
+            if (btn) btn.disabled = false;
+          }
+        }).withFailureHandler(function() {
+          mostrarFeedbackRapido(false, 'Erro ao excluir.');
+          if (btn) btn.disabled = false;
+        }).removerCredenciamentoPlenaria(inscricaoId, EVENTO_ID);
+      }
+      window.abrirModalCredenciadosPlenaria = function() {
+        var modal = document.getElementById('modal-credenciados-plenaria');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        var sel = document.getElementById('modal-plenaria-clube');
+        if (sel) { sel.innerHTML = '<option value="">Todos os clubes</option>'; sel.value = ''; }
+        document.getElementById('modal-plenaria-lista').innerHTML = 'Carregando...';
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          document.getElementById('modal-plenaria-lista').innerHTML = 'Página deve ser aberta pelo link do Portal.';
+          return;
+        }
+        google.script.run.withSuccessHandler(function(arr) {
+          modalPlenariaLista = Array.isArray(arr) ? arr : [];
+          var clubes = [];
+          modalPlenariaLista.forEach(function(c) {
+            var n = (c.clubeNome || '').trim();
+            if (n && clubes.indexOf(n) === -1) clubes.push(n);
+          });
+          clubes.sort();
+          if (sel) {
+            clubes.forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+            sel.onchange = renderizarListaPlenaria;
+          }
+          renderizarListaPlenaria();
+        }).withFailureHandler(function() {
+          document.getElementById('modal-plenaria-lista').innerHTML = 'Erro ao carregar.';
+        }).listarCredenciadosPlenaria(EVENTO_ID);
+      };
+      window.fecharModalCredenciadosPlenaria = function() {
+        var modal = document.getElementById('modal-credenciados-plenaria');
+        if (modal) modal.style.display = 'none';
+      };
+
+      function iniciarCameraScanner() {
+        try {
+          if (!EVENTO_ID) {
+            mostrarErro('Link incompleto: falta o evento. Use o botão "Link do scanner" no Portal com um evento selecionado.');
+            return;
+          }
+          if (typeof Html5Qrcode === 'undefined') {
+            mostrarErro('Leitor de QR não carregou. Tente abrir em outro navegador (Chrome/Firefox no Android, Safari/Chrome no iOS).');
+            return;
+          }
+          if (processando) return;
+          processando = true;
+          mostrarOverlayLoading(true, 'Carregando cache para validação rápida...');
+          if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode('reader');
+          }
+          carregarDadosIniciais(function() {
+            mostrarOverlayLoading(false);
+            atualizarStatusCarregamento();
+            try {
+              html5QrCode.start(
+                { facingMode: 'environment' },
+                { fps: 18, qrbox: { width: 220, height: 220 } },
+                onScanSuccess,
+                function() {}
+              ).then(function() {
+                atualizarStatusCarregamento();
+                processando = false;
+              }).catch(function(err) {
+                processando = false;
+                var msg = '';
+                if (err && err.message) msg = err.message;
+                else if (err && err.name) msg = err.name;
+                else msg = String(err || '').trim();
+                if (!msg) msg = 'permissão negada ou bloqueada pelo navegador. Verifique se o site tem acesso à câmera e tente novamente.';
+                mostrarErro('Câmera: ' + msg);
+              });
+            } catch (errStart) {
+              processando = false;
+              mostrarErro('Câmera: ' + (errStart && errStart.message ? errStart.message : 'não foi possível iniciar. Verifique as permissões de câmera do navegador.'));
+            }
+          });
+        } catch (e) {
+          processando = false;
+          mostrarOverlayLoading(false);
+          mostrarErro('Erro: ' + (e && e.message ? e.message : String(e)));
+        }
+      }
+
+      try {
+        atualizarPainelTipo();
+        atualizarContador();
+        var btnIniciar = document.getElementById('btn-iniciar-camera');
+        if (btnIniciar) {
+          btnIniciar.addEventListener('click', iniciarCameraScanner);
+        } else {
+          // Fallback: se o botão não existir, tenta iniciar da forma antiga
+          iniciarCameraScanner();
+        }
+        var btnManual = document.getElementById('btn-adicionar-manual');
+        var inputManual = document.getElementById('input-manual-uuid');
+        if (btnManual && inputManual) {
+          btnManual.addEventListener('click', function() {
+            var raw = (inputManual.value || '').trim();
+            if (!raw) {
+              mostrarFeedbackRapido(false, 'Digite ou cole o código do passaporte.');
+              return;
+            }
+            onScanSuccess(raw);
+            inputManual.value = '';
+          });
+          inputManual.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              btnManual.click();
+            }
+          });
+        }
+      } catch (e) {
+        mostrarOverlayLoading(false);
+        mostrarErro('Erro: ' + (e && e.message ? e.message : String(e)));
+      }
+    })();
+  </script>
+</body>
+</html>

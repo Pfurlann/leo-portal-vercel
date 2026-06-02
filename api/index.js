@@ -6,23 +6,28 @@ const allFunctions = {};
 
 function loadBackend() {
   if (_loaded) return;
-  _loaded = true;
 
-  const modules = [
-    require('../lib/code'),
-    require('../lib/rtma_pessoas'),
-    require('../lib/rtma_supabase'),
-    require('../lib/rtma_amigos'),
-    require('../lib/rtma_cache'),
-    require('../lib/rtma_config'),
-    require('../lib/rtma_utils'),
-    require('../lib/portal_supabase'),
-    require('../lib/sistema_permissoes_cargos'),
-    require('../lib/funcao_match_storage'),
-  ];
+  try {
+    const modules = [
+      require('../lib/code'),
+      require('../lib/rtma_pessoas'),
+      require('../lib/rtma_supabase'),
+      require('../lib/rtma_amigos'),
+      require('../lib/rtma_cache'),
+      require('../lib/rtma_config'),
+      require('../lib/rtma_utils'),
+      require('../lib/portal_supabase'),
+      require('../lib/sistema_permissoes_cargos'),
+      require('../lib/funcao_match_storage'),
+    ];
 
-  for (const mod of modules) {
-    Object.assign(allFunctions, mod);
+    for (const mod of modules) {
+      Object.assign(allFunctions, mod);
+    }
+    _loaded = true;
+  } catch (err) {
+    console.error('[API] Failed to load backend modules:', err.message);
+    throw err;
   }
 }
 

@@ -1143,18 +1143,16 @@
     }
 
     .item-card {
-      background: #fff;
-      border: 1px solid #e9ecef;
-      border-radius: 12px;
+      background: var(--color-white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
       overflow: hidden;
       transition: all 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      box-shadow: var(--shadow-xs);
       cursor: pointer;
       position: relative;
       display: flex;
       flex-direction: column;
-      min-height: 220px;
-      max-height: 280px;
     }
 
     .new-item-card {
@@ -1214,15 +1212,22 @@
       color: #6c757d;
     }
 
+    #atividadesContainer .new-item-card,
+    #campanhasContainer .new-item-card,
+    #atividades-list-secretaria .new-item-card,
+    #campanhas-list-filtradas .new-item-card {
+      display: none;
+    }
+
     .item-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: var(--shadow-md);
     }
 
     .item-card-header {
-      background: #f8f9fa;
-      padding: 12px 16px;
-      border-bottom: 1px solid #e9ecef;
+      background: var(--color-surface);
+      padding: 8px 11px;
+      border-bottom: 1px solid #f1f5f9;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1593,9 +1598,11 @@
     }
 
     .item-date {
-      font-size: 13px;
-      color: #6c757d;
-      margin: 0;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
 
     .item-description {
@@ -1613,38 +1620,33 @@
     }
 
     .item-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #e9ecef;
+      display: flex;
+      gap: 6px;
       margin-top: auto;
+      padding-top: 10px;
     }
 
     .item-stat {
+      flex: 1;
       text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      background: #f8fafc;
+      border-radius: var(--radius-md);
+      padding: 5px 3px;
     }
 
     .item-stat-value {
-      font-size: 16px;
-      font-weight: 600;
-      color: #212529;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-text);
       display: block;
-      line-height: 1.2;
     }
 
     .item-stat-label {
-      font-size: 10px;
-      color: #6c757d;
+      font-size: 9px;
+      color: var(--color-text-faint);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 2px;
-      line-height: 1.2;
-      text-align: center;
+      letter-spacing: 0.3px;
+      display: block;
     }
 
     /* === MÓDULOS CENTRALIZADOS (Past-Presidentes, Resumo Delegados) === */
@@ -1991,31 +1993,16 @@
     }
 
     /* === GRIDS ESPECÍFICOS === */
-    .campaigns-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-    }
-
+    .campaigns-grid,
     .activities-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
+      gap: 10px;
     }
 
     .item-card {
-      background: #fff;
-      border: 1px solid #e9ecef;
-      border-radius: 12px;
-      overflow: hidden;
-      transition: all 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      cursor: pointer;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      min-height: 200px;
-      max-height: 250px;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs);
     }
 
     .item-title {
@@ -2484,6 +2471,19 @@
     .quem-corrigiu-info {
       margin: 0;
       font-size: 12px;
+    }
+
+    .item-card.alerta {
+      border: 1.5px solid #fecaca;
+    }
+
+    .item-card.alerta .item-card-header {
+      background: #fef2f2;
+      border-bottom-color: #fecaca;
+    }
+
+    .item-card.passado {
+      opacity: 0.6;
     }
 
     /* Indicador de informação faltante no card - ao lado do título */

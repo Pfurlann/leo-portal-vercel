@@ -6645,18 +6645,19 @@ function renderizarPessoasPagina(pessoasParaRenderizar, inicioIndex, totalPagina
     gridDiv.appendChild(novoMembroDiv.firstElementChild);
   }
   
-  const cargosNominata = window.cargosNominataPorAL || [];
-  function cargoNominataParaPessoa(p, clubePessoa) {
-    const c = (clubePessoa || p.clube || '').trim();
-    const n = (p.nome || '').trim();
-    for (let i = 0; i < cargosNominata.length; i++) {
-      if ((cargosNominata[i].clube || '').trim() === c && (cargosNominata[i].nome || '').trim() === n) {
-        return (cargosNominata[i].cargo || '').trim();
-      }
-    }
-    return '';
+  // Build Map once per render (O(1) lookup vs O(n) search per card)
+  const cargosNominataArr = window.cargosNominataPorAL || [];
+  const cargosNominataMap = new Map();
+  for (let i = 0; i < cargosNominataArr.length; i++) {
+    const c = (cargosNominataArr[i].clube || '').trim();
+    const n = (cargosNominataArr[i].nome || '').trim();
+    if (c && n) cargosNominataMap.set(`${c}|${n}`, (cargosNominataArr[i].cargo || '').trim());
   }
-  
+
+  // Hoist once — same for all cards in this render
+  const dataReferencia = obterDataReferenciaFiltro();
+  const dataEfetiva = dataReferencia || new Date();
+
   pessoasParaRenderizar.forEach((pessoa, indexRelativo) => {
     const indexReal = inicioIndex + indexRelativo;
     const tipoAtual = pessoa.tipo || 'Tipo não informado';
@@ -6666,13 +6667,7 @@ function renderizarPessoasPagina(pessoasParaRenderizar, inicioIndex, totalPagina
     const formacao = pessoa.formacao || 'Não informada';
     const profissao = pessoa.profissao || 'Não informada';
     const status = pessoa.status || 'Ativo';
-    const cargoNominata = cargoNominataParaPessoa(pessoa, clube);
-    
-    // Determinar se estamos mostrando tipo histórico
-    const dataReferencia = obterDataReferenciaFiltro();
-    // Sempre calcular tipo via lógica de datas: se há filtro de período usa a data dele,
-    // caso contrário usa hoje para garantir exibição correta de 'Associado LEO/Leão'
-    const dataEfetiva = dataReferencia || new Date();
+    const cargoNominata = cargosNominataMap.get(`${clube.trim()}|${(pessoa.nome || '').trim()}`) || '';
     const tipoComputado = obterTipoHistoricoFrontend(pessoa, dataEfetiva);
     let tipo = tipoComputado || tipoAtual;
     let isHistorico = false;

@@ -3851,43 +3851,22 @@ function obterTipoHistoricoFrontendIncluindoInativos(pessoa, dataReferencia) {
       return obterTipoHistoricoFrontend(pessoa, dataAnteriorDesligamento);
     }
     
-    // 2. Calcular idade na data de referência (para regra dos 31 anos)
-    let idadeNaData = null;
-    if (dataNascimento) {
-      idadeNaData = Math.floor((dataRef - dataNascimento) / (365.25 * 24 * 60 * 60 * 1000));
-    }
-    
-    // 3. LÓGICA CORRIGIDA: Determinar tipo baseado na cronologia das datas (incluindo inativos)
-    
+    // 2. Verificar 31 anos pela lógica de Ano Leoístico (consistente com backend e obterTipoHistoricoFrontend)
+    const completou31Anos = verificarSeCompletou31Anos(dataNascimento, dataRef);
+
+    // 3. Determinar tipo baseado na cronologia das datas (incluindo inativos)
+
     // Primeiro: Verificar se tinha posse no Lions na data de referência
-        if (dataPosseLions && dataRef >= dataPosseLions) {
-      // Se tinha posse no clube também na data de referência
+    if (dataPosseLions && dataRef >= dataPosseLions) {
       if (dataAssociadoDesde && dataRef >= dataAssociadoDesde) {
-        // Se tem 31+ anos, é SEMPRE "Associado LEO/Leão"
-        if (idadeNaData && idadeNaData >= 31) {
-            return 'Associado LEO/Leão';
-          }
-          // Se tem menos de 31 anos, é "Associado LEO e LEO/Leão"
-          else {
-            return 'Associado LEO e LEO/Leão';
-          }
-        }
-      // Se só tinha posse no Lions, é "Associado LEO/Leão"
-        else {
-        return 'Associado LEO/Leão';
+        return completou31Anos ? 'Associado LEO/Leão' : 'Associado LEO e LEO/Leão';
       }
+      return 'Associado LEO/Leão';
     }
-    
+
     // Segundo: Verificar se tinha posse no clube na data de referência
     if (dataAssociadoDesde && dataRef >= dataAssociadoDesde) {
-      // Se tem 31+ anos, é SEMPRE "Associado LEO/Leão"
-      if (idadeNaData && idadeNaData >= 31) {
-        return 'Associado LEO/Leão';
-      }
-      // Se tem menos de 31 anos, é "Associado LEO"
-      else {
-        return 'Associado LEO';
-      }
+      return completou31Anos ? 'Associado LEO/Leão' : 'Associado LEO';
     }
     
     // Terceiro: Verificar se tinha início como Pré-LEO na data de referência

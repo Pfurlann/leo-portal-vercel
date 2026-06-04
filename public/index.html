@@ -3009,15 +3009,17 @@
     }
 
     /* Padding nas seções quando há botões de nav para não sobrepor conteúdo */
-    .modal-content:has(.modal-nav-btn) .modal-section,
-    .modal-content:has(.modal-nav-btn) .modal-stats-strip {
+    .modal-content:has(.modal-nav-btn) .modal-stats-strip,
+    .modal-content:has(.modal-nav-btn) .modal-body > .modal-section,
+    .modal-content:has(.modal-nav-btn) .modal-body-cols {
       padding-left: 70px;
       padding-right: 70px;
     }
 
     /* Fallback para navegadores que não suportam :has() */
-    .modal-content.with-nav .modal-section,
-    .modal-content.with-nav .modal-stats-strip {
+    .modal-content.with-nav .modal-stats-strip,
+    .modal-content.with-nav .modal-body > .modal-section,
+    .modal-content.with-nav .modal-body-cols {
       padding-left: 70px;
       padding-right: 70px;
     }
@@ -4048,7 +4050,7 @@
       }
 
       .modal-body {
-        max-height: calc(92vh - 130px);
+        max-height: calc(92vh - 150px);
       }
 
       .modal-body-cols {
@@ -4366,7 +4368,7 @@
       }
 
       .modal-body {
-        max-height: calc(94vh - 120px);
+        max-height: calc(94vh - 140px);
       }
     }
 

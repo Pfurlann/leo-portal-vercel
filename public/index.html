@@ -3011,7 +3011,8 @@
     /* Padding nas seções quando há botões de nav para não sobrepor conteúdo */
     .modal-content:has(.modal-nav-btn) .modal-stats-strip,
     .modal-content:has(.modal-nav-btn) .modal-body > .modal-section,
-    .modal-content:has(.modal-nav-btn) .modal-body-cols {
+    .modal-content:has(.modal-nav-btn) .modal-body-cols,
+    .modal-content:has(.modal-nav-btn) .comentario-section {
       padding-left: 70px;
       padding-right: 70px;
     }
@@ -3019,7 +3020,8 @@
     /* Fallback para navegadores que não suportam :has() */
     .modal-content.with-nav .modal-stats-strip,
     .modal-content.with-nav .modal-body > .modal-section,
-    .modal-content.with-nav .modal-body-cols {
+    .modal-content.with-nav .modal-body-cols,
+    .modal-content.with-nav .comentario-section {
       padding-left: 70px;
       padding-right: 70px;
     }

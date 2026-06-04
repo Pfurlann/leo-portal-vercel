@@ -33368,76 +33368,82 @@ ${erro.message || erro}`);
            </div>
 
            <div class="modal-body">
-             <div class="modal-section">
-               <h4 class="modal-section-label">Identificação</h4>
-               <div class="modal-info-cells">
-                 <div class="modal-info-cell">
-                   <div class="modal-info-cell-label">Tipo</div>
-                   <div class="modal-info-cell-value">${atividade.tipoAtividade}</div>
+             <div class="modal-body-cols">
+               <div class="modal-body-col">
+                 <div class="modal-section">
+                   <h4 class="modal-section-label">Identificação</h4>
+                   <div class="modal-info-cells">
+                     <div class="modal-info-cell">
+                       <div class="modal-info-cell-label">Tipo</div>
+                       <div class="modal-info-cell-value">${atividade.tipoAtividade}</div>
+                     </div>
+                     <div class="modal-info-cell">
+                       <div class="modal-info-cell-label">AL</div>
+                       <div class="modal-info-cell-value">${atividade.al}</div>
+                     </div>
+                     <div class="modal-info-cell">
+                       <div class="modal-info-cell-label">Início</div>
+                       <div class="modal-info-cell-value">${dataInicio}</div>
+                     </div>
+                     <div class="modal-info-cell">
+                       <div class="modal-info-cell-label">Fim</div>
+                       <div class="modal-info-cell-value">${dataFim}</div>
+                     </div>
+                     <div class="modal-info-cell">
+                       <div class="modal-info-cell-label">Local</div>
+                       <div class="modal-info-cell-value">${atividade.localAtividade}</div>
+                     </div>
+                   </div>
                  </div>
-                 <div class="modal-info-cell">
-                   <div class="modal-info-cell-label">AL</div>
-                   <div class="modal-info-cell-value">${atividade.al}</div>
-                 </div>
-                 <div class="modal-info-cell">
-                   <div class="modal-info-cell-label">Início</div>
-                   <div class="modal-info-cell-value">${dataInicio}</div>
-                 </div>
-                 <div class="modal-info-cell">
-                   <div class="modal-info-cell-label">Fim</div>
-                   <div class="modal-info-cell-value">${dataFim}</div>
-                 </div>
-                 <div class="modal-info-cell">
-                   <div class="modal-info-cell-label">Local</div>
-                   <div class="modal-info-cell-value">${atividade.localAtividade}</div>
+
+                 <div class="modal-section">
+                   <h4 class="modal-section-label">Presença Detalhada</h4>
+                   <div class="modal-presence-grid">
+                     <div class="modal-presence-cell">
+                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdPresentes) || 0}</span>
+                       <span class="modal-presence-cell-label">LEO</span>
+                     </div>
+                     <div class="modal-presence-cell">
+                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdPreLeos) || 0}</span>
+                       <span class="modal-presence-cell-label">Pré-LEO</span>
+                     </div>
+                     <div class="modal-presence-cell">
+                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdLeoLeao) || 0}</span>
+                       <span class="modal-presence-cell-label">LEO/Leão</span>
+                     </div>
+                     <div class="modal-presence-cell">
+                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdAmigosConselheiros) || 0}</span>
+                       <span class="modal-presence-cell-label">Conselheiro</span>
+                     </div>
+                     <div class="modal-presence-cell">
+                       <span class="modal-presence-cell-value">${parseInt(atividade.outrosLions) || 0}</span>
+                       <span class="modal-presence-cell-label">Outros</span>
+                     </div>
+                   </div>
                  </div>
                </div>
-             </div>
 
-             <div class="modal-section">
-               <h4 class="modal-section-label">Presença detalhada</h4>
-               <div class="modal-presence-grid">
-                 <div class="modal-presence-cell">
-                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdPresentes) || 0}</span>
-                   <span class="modal-presence-cell-label">LEO</span>
+               <div class="modal-body-col">
+                 <div class="modal-section">
+                   <h4 class="modal-section-label">Descrição</h4>
+                   <p class="modal-description-text">${atividade.descricaoTexto}</p>
                  </div>
-                 <div class="modal-presence-cell">
-                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdPreLeos) || 0}</span>
-                   <span class="modal-presence-cell-label">Pré-LEO</span>
+
+                 ${atividade.linkFotoOficial ? `
+                 <div class="modal-section">
+                   <h4 class="modal-section-label"><i class="fas fa-image"></i> Foto Oficial</h4>
+                   <div class="modal-image-container">
+                     <img id="modal-atividade-img"
+                          src="${atividade.linkFotoOficial}"
+                          alt="Foto Oficial"
+                          style="width: 100%; max-height: 360px; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
+                          data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
+                          onerror='this.style.display="none"; this.parentElement.innerHTML="<div style=&apos;padding: 20px; color: #999; text-align: center;&apos;>Erro ao carregar imagem</div>"'>
+                   </div>
                  </div>
-                 <div class="modal-presence-cell">
-                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdLeoLeao) || 0}</span>
-                   <span class="modal-presence-cell-label">LEO/Leão</span>
-                 </div>
-                 <div class="modal-presence-cell">
-                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdAmigosConselheiros) || 0}</span>
-                   <span class="modal-presence-cell-label">Conselheiro</span>
-                 </div>
-                 <div class="modal-presence-cell">
-                   <span class="modal-presence-cell-value">${parseInt(atividade.outrosLions) || 0}</span>
-                   <span class="modal-presence-cell-label">Outros</span>
-                 </div>
+                 ` : ''}
                </div>
              </div>
-
-             <div class="modal-section">
-               <h4 class="modal-section-label">Descrição</h4>
-               <p class="modal-description-text">${atividade.descricaoTexto}</p>
-             </div>
-
-             ${atividade.linkFotoOficial ? `
-             <div class="modal-section">
-               <h4 class="modal-section-label"><i class="fas fa-image"></i> Foto Oficial</h4>
-               <div class="modal-image-container">
-                 <img id="modal-atividade-img"
-                      src="${atividade.linkFotoOficial}"
-                      alt="Foto Oficial"
-                      style="width: 100%; max-height: 400px; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
-                      data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
-                      onerror='this.style.display="none"; this.parentElement.innerHTML="<div style=&apos;padding: 20px; color: #999; text-align: center;&apos;>Erro ao carregar imagem</div>"'>
-               </div>
-             </div>
-             ` : ''}
 
              ${gerarSecaoComentarios(atividade, 'atividade')}
            </div>

@@ -2893,14 +2893,12 @@
     }
 
     .modal-presence-grid {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
-      flex-wrap: wrap;
     }
 
     .modal-presence-cell {
-      flex: 1;
-      min-width: 70px;
       background: var(--color-surface);
       border-radius: var(--radius-md);
       padding: 8px;
@@ -3011,7 +3009,6 @@
     /* Padding nas seções quando há botões de nav para não sobrepor conteúdo */
     .modal-content:has(.modal-nav-btn) .modal-stats-strip,
     .modal-content:has(.modal-nav-btn) .modal-body > .modal-section,
-    .modal-content:has(.modal-nav-btn) .modal-body-cols,
     .modal-content:has(.modal-nav-btn) .comentario-section {
       padding-left: 70px;
       padding-right: 70px;
@@ -3020,7 +3017,6 @@
     /* Fallback para navegadores que não suportam :has() */
     .modal-content.with-nav .modal-stats-strip,
     .modal-content.with-nav .modal-body > .modal-section,
-    .modal-content.with-nav .modal-body-cols,
     .modal-content.with-nav .comentario-section {
       padding-left: 70px;
       padding-right: 70px;
@@ -33007,126 +33003,120 @@ ${erro.message || erro}`);
            </div>
 
            <div class="modal-body">
-             <div class="modal-body-cols">
-               <div class="modal-body-col">
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Identificação</h4>
-                   <div class="modal-info-cells">
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">AL</div>
-                       <div class="modal-info-cell-value">${campanha.al}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Trimestre</div>
-                       <div class="modal-info-cell-value">T${campanha.trimestre}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Eixo</div>
-                       <div class="modal-info-cell-value">${campanha.eixo}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Eixo DM</div>
-                       <div class="modal-info-cell-value">${campanha.eixoDM}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Coordenador</div>
-                       <div class="modal-info-cell-value">${campanha.coordenador}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Início</div>
-                       <div class="modal-info-cell-value">${dataInicio}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Fim</div>
-                       <div class="modal-info-cell-value">${dataFim}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Local</div>
-                       <div class="modal-info-cell-value">${campanha.localRealizacao || campanha.local_realizacao || 'Não informado'}</div>
-                     </div>
-                   </div>
+             <div class="modal-section">
+               <h4 class="modal-section-label">Identificação</h4>
+               <div class="modal-info-cells">
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">AL</div>
+                   <div class="modal-info-cell-value">${campanha.al}</div>
                  </div>
-
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Participantes</h4>
-                   <div class="modal-info-cells">
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">LEO</div>
-                       <div class="modal-info-cell-value">${contarAssociadosLeoParticipantesCampanha(campanha)}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Convidados/Amigos</div>
-                       <div class="modal-info-cell-value"><span id="campanha-detalhe-resumo-convidados-amigos">${textoInicialResumoConvidadosCampanha(campanha)}</span></div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Leões</div>
-                       <div class="modal-info-cell-value">${obterQtdLeoesParticipantesCampanha(campanha)}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Pessoas Impactadas</div>
-                       <div class="modal-info-cell-value">${parseInt(campanha.pessoasImpactadas || 0).toLocaleString('pt-BR')}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Custo</div>
-                       <div class="modal-info-cell-value">R$ ${parseFloat(campanha.custoCampanha || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-                     </div>
-                   </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Trimestre</div>
+                   <div class="modal-info-cell-value">T${campanha.trimestre}</div>
                  </div>
-
-                 ${campanha.temParceria === 'Sim' || campanha.temParceria === true ? `
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Parceria</h4>
-                   <div class="modal-info-cells">
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Entidade</div>
-                       <div class="modal-info-cell-value">${campanha.entidadeParceira || 'Não informado'}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Tipo</div>
-                       <div class="modal-info-cell-value">${campanha.tipoParceria || 'Não informado'}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Descrição</div>
-                       <div class="modal-info-cell-value">${campanha.descricaoParceria || 'Não informado'}</div>
-                     </div>
-                   </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Eixo</div>
+                   <div class="modal-info-cell-value">${campanha.eixo}</div>
                  </div>
-                 ` : ''}
-               </div>
-
-               <div class="modal-body-col">
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Objetivo</h4>
-                   <p class="modal-description-text">${campanha.objetivo || 'Não informado'}</p>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Eixo DM</div>
+                   <div class="modal-info-cell-value">${campanha.eixoDM}</div>
                  </div>
-
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Descrição</h4>
-                   <p class="modal-description-text" style="white-space: pre-wrap;">${formatarDescricaoCampanha(campanha.descricaoTexto || campanha.descricaoHTML || 'Não informado')}</p>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Coordenador</div>
+                   <div class="modal-info-cell-value">${campanha.coordenador}</div>
                  </div>
-
-                 ${campanha.divulgacao ? `
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Divulgação</h4>
-                   <p class="modal-description-text">${campanha.divulgacao}</p>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Início</div>
+                   <div class="modal-info-cell-value">${dataInicio}</div>
                  </div>
-                 ` : ''}
-
-                 ${campanha.pontosMelhorar ? `
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Pontos a Melhorar</h4>
-                   <p class="modal-description-text">${campanha.pontosMelhorar}</p>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Fim</div>
+                   <div class="modal-info-cell-value">${dataFim}</div>
                  </div>
-                 ` : ''}
-
-                 ${campanha.feedback ? `
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Feedback</h4>
-                   <p class="modal-description-text">${campanha.feedback}</p>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Local</div>
+                   <div class="modal-info-cell-value">${campanha.localRealizacao || campanha.local_realizacao || 'Não informado'}</div>
                  </div>
-                 ` : ''}
                </div>
              </div>
+
+             <div class="modal-section">
+               <h4 class="modal-section-label">Participantes</h4>
+               <div class="modal-info-cells">
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">LEO</div>
+                   <div class="modal-info-cell-value">${contarAssociadosLeoParticipantesCampanha(campanha)}</div>
+                 </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Convidados/Amigos</div>
+                   <div class="modal-info-cell-value"><span id="campanha-detalhe-resumo-convidados-amigos">${textoInicialResumoConvidadosCampanha(campanha)}</span></div>
+                 </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Leões</div>
+                   <div class="modal-info-cell-value">${obterQtdLeoesParticipantesCampanha(campanha)}</div>
+                 </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Pessoas Impactadas</div>
+                   <div class="modal-info-cell-value">${parseInt(campanha.pessoasImpactadas || 0).toLocaleString('pt-BR')}</div>
+                 </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Custo</div>
+                   <div class="modal-info-cell-value">R$ ${parseFloat(campanha.custoCampanha || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                 </div>
+               </div>
+             </div>
+
+             ${campanha.temParceria === 'Sim' || campanha.temParceria === true ? `
+             <div class="modal-section">
+               <h4 class="modal-section-label">Parceria</h4>
+               <div class="modal-info-cells">
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Entidade</div>
+                   <div class="modal-info-cell-value">${campanha.entidadeParceira || 'Não informado'}</div>
+                 </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Tipo</div>
+                   <div class="modal-info-cell-value">${campanha.tipoParceria || 'Não informado'}</div>
+                 </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Descrição</div>
+                   <div class="modal-info-cell-value">${campanha.descricaoParceria || 'Não informado'}</div>
+                 </div>
+               </div>
+             </div>
+             ` : ''}
+
+             <div class="modal-section">
+               <h4 class="modal-section-label">Objetivo</h4>
+               <p class="modal-description-text">${campanha.objetivo || 'Não informado'}</p>
+             </div>
+
+             <div class="modal-section">
+               <h4 class="modal-section-label">Descrição</h4>
+               <p class="modal-description-text" style="white-space: pre-wrap;">${formatarDescricaoCampanha(campanha.descricaoTexto || campanha.descricaoHTML || 'Não informado')}</p>
+             </div>
+
+             ${campanha.divulgacao ? `
+             <div class="modal-section">
+               <h4 class="modal-section-label">Divulgação</h4>
+               <p class="modal-description-text">${campanha.divulgacao}</p>
+             </div>
+             ` : ''}
+
+             ${campanha.pontosMelhorar ? `
+             <div class="modal-section">
+               <h4 class="modal-section-label">Pontos a Melhorar</h4>
+               <p class="modal-description-text">${campanha.pontosMelhorar}</p>
+             </div>
+             ` : ''}
+
+             ${campanha.feedback ? `
+             <div class="modal-section">
+               <h4 class="modal-section-label">Feedback</h4>
+               <p class="modal-description-text">${campanha.feedback}</p>
+             </div>
+             ` : ''}
 
              ${midiasHtml}
 
@@ -33370,82 +33360,76 @@ ${erro.message || erro}`);
            </div>
 
            <div class="modal-body">
-             <div class="modal-body-cols">
-               <div class="modal-body-col">
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Identificação</h4>
-                   <div class="modal-info-cells">
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Tipo</div>
-                       <div class="modal-info-cell-value">${atividade.tipoAtividade}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">AL</div>
-                       <div class="modal-info-cell-value">${atividade.al}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Início</div>
-                       <div class="modal-info-cell-value">${dataInicio}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Fim</div>
-                       <div class="modal-info-cell-value">${dataFim}</div>
-                     </div>
-                     <div class="modal-info-cell">
-                       <div class="modal-info-cell-label">Local</div>
-                       <div class="modal-info-cell-value">${atividade.localAtividade}</div>
-                     </div>
-                   </div>
+             <div class="modal-section">
+               <h4 class="modal-section-label">Identificação</h4>
+               <div class="modal-info-cells">
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Tipo</div>
+                   <div class="modal-info-cell-value">${atividade.tipoAtividade}</div>
                  </div>
-
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Presença Detalhada</h4>
-                   <div class="modal-presence-grid">
-                     <div class="modal-presence-cell">
-                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdPresentes) || 0}</span>
-                       <span class="modal-presence-cell-label">LEO</span>
-                     </div>
-                     <div class="modal-presence-cell">
-                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdPreLeos) || 0}</span>
-                       <span class="modal-presence-cell-label">Pré-LEO</span>
-                     </div>
-                     <div class="modal-presence-cell">
-                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdLeoLeao) || 0}</span>
-                       <span class="modal-presence-cell-label">LEO/Leão</span>
-                     </div>
-                     <div class="modal-presence-cell">
-                       <span class="modal-presence-cell-value">${parseInt(atividade.qtdAmigosConselheiros) || 0}</span>
-                       <span class="modal-presence-cell-label">Conselheiro</span>
-                     </div>
-                     <div class="modal-presence-cell">
-                       <span class="modal-presence-cell-value">${parseInt(atividade.outrosLions) || 0}</span>
-                       <span class="modal-presence-cell-label">Outros</span>
-                     </div>
-                   </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">AL</div>
+                   <div class="modal-info-cell-value">${atividade.al}</div>
                  </div>
-               </div>
-
-               <div class="modal-body-col">
-                 <div class="modal-section">
-                   <h4 class="modal-section-label">Descrição</h4>
-                   <p class="modal-description-text">${atividade.descricaoTexto}</p>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Início</div>
+                   <div class="modal-info-cell-value">${dataInicio}</div>
                  </div>
-
-                 ${atividade.linkFotoOficial ? `
-                 <div class="modal-section">
-                   <h4 class="modal-section-label"><i class="fas fa-image"></i> Foto Oficial</h4>
-                   <div class="modal-image-container">
-                     <img id="modal-atividade-img"
-                          src="${atividade.linkFotoOficial}"
-                          alt="Foto Oficial"
-                          style="width: 100%; max-height: 360px; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
-                          data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
-                          onerror='this.style.display="none"; this.parentElement.innerHTML="<div style=&apos;padding: 20px; color: #999; text-align: center;&apos;>Erro ao carregar imagem</div>"'>
-                   </div>
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Fim</div>
+                   <div class="modal-info-cell-value">${dataFim}</div>
                  </div>
-                 ` : ''}
+                 <div class="modal-info-cell">
+                   <div class="modal-info-cell-label">Local</div>
+                   <div class="modal-info-cell-value">${atividade.localAtividade}</div>
+                 </div>
                </div>
              </div>
+
+             <div class="modal-section">
+               <h4 class="modal-section-label">Presença Detalhada</h4>
+               <div class="modal-presence-grid">
+                 <div class="modal-presence-cell">
+                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdPresentes) || 0}</span>
+                   <span class="modal-presence-cell-label">LEO</span>
+                 </div>
+                 <div class="modal-presence-cell">
+                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdPreLeos) || 0}</span>
+                   <span class="modal-presence-cell-label">Pré-LEO</span>
+                 </div>
+                 <div class="modal-presence-cell">
+                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdLeoLeao) || 0}</span>
+                   <span class="modal-presence-cell-label">LEO/Leão</span>
+                 </div>
+                 <div class="modal-presence-cell">
+                   <span class="modal-presence-cell-value">${parseInt(atividade.qtdAmigosConselheiros) || 0}</span>
+                   <span class="modal-presence-cell-label">Conselheiro</span>
+                 </div>
+                 <div class="modal-presence-cell">
+                   <span class="modal-presence-cell-value">${parseInt(atividade.outrosLions) || 0}</span>
+                   <span class="modal-presence-cell-label">Outros</span>
+                 </div>
+               </div>
+             </div>
+
+             <div class="modal-section">
+               <h4 class="modal-section-label">Descrição</h4>
+               <p class="modal-description-text">${atividade.descricaoTexto}</p>
+             </div>
+
+             ${atividade.linkFotoOficial ? `
+             <div class="modal-section">
+               <h4 class="modal-section-label"><i class="fas fa-image"></i> Foto Oficial</h4>
+               <div class="modal-image-container">
+                 <img id="modal-atividade-img"
+                      src="${atividade.linkFotoOficial}"
+                      alt="Foto Oficial"
+                      style="width: 100%; max-height: 400px; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
+                      data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
+                      onerror='this.style.display="none"; this.parentElement.innerHTML="<div style=&apos;padding: 20px; color: #999; text-align: center;&apos;>Erro ao carregar imagem</div>"'>
+               </div>
+             </div>
+             ` : ''}
 
              ${gerarSecaoComentarios(atividade, 'atividade')}
            </div>

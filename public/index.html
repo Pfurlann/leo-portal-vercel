@@ -24039,6 +24039,20 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         </div>
 
         ${(isSecretaria || isDistrital) ? `
+        <!-- Seção de Eixos de Campanha -->
+        <div class="config-section" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="margin: 0 0 8px 0; color: #212529;">Eixos de Campanha</h3>
+          <p style="color: #6c757d; margin: 0 0 20px 0;">Gerencie os eixos de campanha D8 e DM para cada Ano Leonístico.</p>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+            <label style="font-weight: 600; white-space: nowrap;">Ano Leonístico:</label>
+            <select id="eixos-al-selector" style="padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 14px; min-width: 160px;"
+              onchange="carregarEixosCampanhaConfig(this.value)">
+            </select>
+          </div>
+          <div id="eixos-campanha-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div class="loading"><div class="loading-spinner"></div><div>Carregando eixos...</div></div>
+          </div>
+        </div>
         <!-- Seção de Clubes -->
         <div class="config-section" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <h3 style="margin: 0 0 20px 0; color: #212529;">Clubes</h3>
@@ -24298,6 +24312,17 @@ function atualizarEstatisticasGerenciaisFiltradas() {
      
      html += `</div>`;
      container.innerHTML = html;
+
+     // Popular seletor de AL para seção de eixos
+     const alSel = document.getElementById('eixos-al-selector');
+     if (alSel && configuracoes && configuracoes.length > 0) {
+       alSel.innerHTML = configuracoes.map(c =>
+         `<option value="${escapeHtmlAttr(c.al)}">${escapeHtmlAttr(c.al)}${c.ativo ? ' (ativo)' : ''}</option>`
+       ).join('');
+       const ativo = configuracoes.find(c => c.ativo);
+       alSel.value = ativo ? ativo.al : configuracoes[0].al;
+       carregarEixosCampanhaConfig(alSel.value);
+     }
    }
 
   function formatarDataBR(dataString) {
@@ -24783,6 +24808,92 @@ function atualizarEstatisticasGerenciaisFiltradas() {
    let aprovacoesCacheTrocasIncoming = []; // só clube: trocas para o clube aprovar
    let aprovacoesCacheTransferenciasIncoming = []; // só clube: transferências para o clube aprovar
    let aprovacoesFiltroStatus = 'pendentes'; // 'pendentes' | 'resolvidas'
+
+   // === EIXOS DE CAMPANHA — CONFIGURAÇÕES ===
+
+   function carregarEixosCampanhaConfig(al) {
+     const container = document.getElementById('eixos-campanha-container');
+     if (!container) return;
+     container.innerHTML = `<div class="loading"><div class="loading-spinner"></div><div>Carregando eixos...</div></div>`;
+     google.script.run
+       .withSuccessHandler(function(resultado) {
+         if (!resultado.sucesso) {
+           container.innerHTML = `<div style="color:#dc3545;">Erro: ${resultado.erro || 'desconhecido'}</div>`;
+           return;
+         }
+         const eixos = resultado.eixos || [];
+         const d8 = eixos.filter(e => e.tipo === 'd8');
+         const dm = eixos.filter(e => e.tipo === 'dm');
+         function renderLista(tipo, lista) {
+           const itens = lista.map(e =>
+             `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#f8f9fa; border-radius:6px; margin-bottom:6px;">
+               <span style="font-size:14px;">${escapeHtmlContent(e.nome)}</span>
+               <button type="button" onclick="removerEixoCampanha('${escapeHtmlAttr(e.id)}','${escapeHtmlAttr(al)}')"
+                 style="background:none; border:none; color:#dc3545; cursor:pointer; font-size:16px; padding:0 4px; line-height:1;" title="Remover">✕</button>
+             </div>`
+           ).join('');
+           return `
+             <div>
+               <h4 style="margin:0 0 12px 0; color:#495057; font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:.5px;">
+                 Eixos ${tipo === 'd8' ? 'D8' : 'DM'}
+               </h4>
+               ${itens || '<p style="color:#adb5bd; font-size:13px; margin:0 0 8px 0;">Nenhum eixo cadastrado.</p>'}
+               <div style="display:flex; gap:8px; margin-top:8px;">
+                 <input type="text" id="novo-eixo-${tipo}" placeholder="Nome do eixo"
+                   style="flex:1; padding:8px 10px; border:1px solid #dee2e6; border-radius:6px; font-size:13px;"
+                   onkeydown="if(event.key==='Enter') adicionarEixoCampanha('${escapeHtmlAttr(al)}','${tipo}')">
+                 <button type="button" class="btn-primary" onclick="adicionarEixoCampanha('${escapeHtmlAttr(al)}','${tipo}')"
+                   style="padding:8px 14px; font-size:13px; white-space:nowrap;">+ Adicionar</button>
+               </div>
+             </div>`;
+         }
+         container.innerHTML = renderLista('d8', d8) + renderLista('dm', dm);
+       })
+       .withFailureHandler(function() {
+         const c = document.getElementById('eixos-campanha-container');
+         if (c) c.innerHTML = `<div style="color:#dc3545;">Erro ao carregar eixos.</div>`;
+       })
+       .listarEixosCampanha(al);
+   }
+
+   function adicionarEixoCampanha(al, tipo) {
+     const input = document.getElementById(`novo-eixo-${tipo}`);
+     if (!input) return;
+     const nome = (input.value || '').trim();
+     if (!nome) { input.focus(); return; }
+     input.disabled = true;
+     google.script.run
+       .withSuccessHandler(function(resultado) {
+         input.disabled = false;
+         if (!resultado.sucesso) {
+           alert('Erro ao adicionar eixo: ' + (resultado.erro || 'desconhecido'));
+           return;
+         }
+         input.value = '';
+         carregarEixosCampanhaConfig(al);
+       })
+       .withFailureHandler(function() {
+         input.disabled = false;
+         alert('Erro ao adicionar eixo.');
+       })
+       .salvarEixoCampanha({ al: al, nome: nome, tipo: tipo });
+   }
+
+   function removerEixoCampanha(id, al) {
+     if (!confirm('Remover este eixo?')) return;
+     google.script.run
+       .withSuccessHandler(function(resultado) {
+         if (!resultado.sucesso) {
+           alert('Erro ao remover eixo: ' + (resultado.erro || 'desconhecido'));
+           return;
+         }
+         carregarEixosCampanhaConfig(al);
+       })
+       .withFailureHandler(function() {
+         alert('Erro ao remover eixo.');
+       })
+       .excluirEixoCampanha(id);
+   }
 
    function carregarModuloAprovacoes() {
      console.log('Carregando módulo de aprovações...');

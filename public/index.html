@@ -22990,7 +22990,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
 
      const modalHtml = `
        <div class="modal-overlay" onclick="fecharModal(event)">
-         <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 1400px;">
+         <div class="modal-content" onclick="event.stopPropagation()">
            <div class="modal-header">
              <h2 class="modal-title">${campanha.titulo} - ${campanha.clube}</h2>
              <button class="modal-close" onclick="fecharModal()">&times;</button>
@@ -27037,7 +27037,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
 
      const modalHtml = `
        <div class="modal-overlay" onclick="fecharModal(event)">
-         <div class="modal-content ${atividadesAtuais.length > 1 ? 'with-nav' : ''}" onclick="event.stopPropagation()" style="max-width: 1400px; position: relative;">
+         <div class="modal-content ${atividadesAtuais.length > 1 ? 'with-nav' : ''}" onclick="event.stopPropagation()" style="position: relative;">
            ${atividadesAtuais.length > 1 ? `
              <button class="modal-nav-btn modal-nav-prev" onclick="navegarAtividadeGabinete(-1)" title="Atividade anterior">
                ‹

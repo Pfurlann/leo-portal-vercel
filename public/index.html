@@ -24841,8 +24841,8 @@ function atualizarEstatisticasGerenciaisFiltradas() {
                <div style="display:flex; gap:8px; margin-top:8px;">
                  <input type="text" id="novo-eixo-${tipo}" placeholder="Nome do eixo"
                    style="flex:1; padding:8px 10px; border:1px solid #dee2e6; border-radius:6px; font-size:13px;"
-                   onkeydown="if(event.key==='Enter') adicionarEixoCampanha('${escapeHtmlAttr(al)}','${tipo}')">
-                 <button type="button" class="btn-primary" onclick="adicionarEixoCampanha('${escapeHtmlAttr(al)}','${tipo}')"
+                   onkeydown="if(event.key==='Enter') adicionarEixoCampanha('${escapeHtmlAttr(al)}','${escapeHtmlAttr(tipo)}')">
+                 <button type="button" class="btn-primary" onclick="adicionarEixoCampanha('${escapeHtmlAttr(al)}','${escapeHtmlAttr(tipo)}')"
                    style="padding:8px 14px; font-size:13px; white-space:nowrap;">+ Adicionar</button>
                </div>
              </div>`;
@@ -24858,7 +24858,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
 
    function adicionarEixoCampanha(al, tipo) {
      const input = document.getElementById(`novo-eixo-${tipo}`);
-     if (!input) return;
+     if (!input || input.disabled) return;
      const nome = (input.value || '').trim();
      if (!nome) { input.focus(); return; }
      input.disabled = true;

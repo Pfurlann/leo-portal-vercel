@@ -1,18 +1,3 @@
-'use strict';
-
-const { UrlFetchApp, PropertiesService, CacheService, LockService, Utilities, Session, ScriptApp, Logger, MimeType, DriveApp, PORTAL_USAR_SUPABASE, portalBuscarCampanhas, portalBuscarAtividades, portalBuscarTodasAtividades, portalBuscarTodasCampanhas, RTMA_SUPABASE_CONFIG, PLANILHAS_CAMPANHAS, PLANILHAS_ATIVIDADES, SOURCE_PLANILHAS_CLUBES } = require('./gas-compat');
-const { gasStyleFetch } = require('./async-fetch-helper');
-const rtmaPessoas = require('./rtma_pessoas');
-const rtmaSupabase = require('./rtma_supabase');
-const rtmaAmigos = require('./rtma_amigos');
-const rtmaCache = require('./rtma_cache');
-const rtmaUtils = require('./rtma_utils');
-const rtmaConfig = require('./rtma_config');
-const portalSupabase = require('./portal_supabase');
-// GAS has shared global scope; bridge all portal_supabase exports so direct calls work in Node.js
-Object.keys(portalSupabase).forEach(k => { if (typeof global[k] === 'undefined') global[k] = portalSupabase[k]; });
-const sistemaPermissoes = require('./sistema_permissoes_cargos');
-
 // === SISTEMA LEO LD-8 UNIFICADO COM VISÃO GERENCIAL ===
 // Campanhas + Atividades + Visão Gerencial em um só sistema (v1.6)
 
@@ -50,7 +35,7 @@ const SUPABASE_URL_LEO = 'https://bqkttaflhtsdkamgscnf.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzE5MDgyMSwiZXhwIjoyMDgyNzY2ODIxfQ.v5Eh3DgTDPnkaptB0wBR_pnafF-j9cX5snv8NdF8q6s';
 
 function obterServiceRoleKeySupabaseUnificado() {
-  var p = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  var p = PropertiesService.getScriptProperties().getProperty('SUPABASE_SERVICE_ROLE_KEY');
   if (p && String(p).trim()) return String(p).trim();
   return SUPABASE_SERVICE_ROLE_KEY_FALLBACK;
 }
@@ -64,7 +49,7 @@ function obterServiceRoleKeySupabaseUnificado() {
  * não subir após um cadastro noutro AL (ex.: filtro 2025-2026 e registo em 2026-2027).
  * @param {string} anoLeonistico - ignorado na query (mantido na assinatura por compatibilidade)
  */
-async function buscarTodosDirigentes(clube, anoLeonistico, formacao, profissao) {
+function buscarTodosDirigentes(clube, anoLeonistico, formacao, profissao) {
   console.log('🔍 Buscando dirigentes:', { clube, anoLeonistico, formacao, profissao });
   
   try {
@@ -96,7 +81,7 @@ async function buscarTodosDirigentes(clube, anoLeonistico, formacao, profissao) 
     console.log('📡 URL da query:', url);
     
     // Fazer requisição ao Supabase
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -148,146 +133,11 @@ async function buscarTodosDirigentes(clube, anoLeonistico, formacao, profissao) 
 }
 
 /**
- * Dirigentes da nominata cujo campo `clube` é Gabinete Distrital OU Distrito LEO LD-8 (uma só query).
- * Cobre quem está só na nominata e não no RTMA de nenhum clube; evita perder linhas por divergência de filtro.
- * @return {Array<Object>} mesmo formato que buscarTodosDirigentes
- */
-async function buscarDirigentesNominataGabineteOuDistrito() {
-  console.log('🔍 buscarDirigentesNominataGabineteOuDistrito');
-  try {
-    var urlBase = 'https://bqkttaflhtsdkamgscnf.supabase.co';
-    var key = obterServiceRoleKeySupabaseUnificado();
-    var g = encodeURIComponent('Gabinete Distrital');
-    var d = encodeURIComponent('Distrito LEO LD-8');
-    var url = urlBase + '/rest/v1/nominata_dirigentes?or=(clube.eq.' + g + ',clube.eq.' + d + ')&select=*&order=nome.asc';
-    var response = await gasStyleFetch(url, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': 'Bearer ' + key,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      muteHttpExceptions: true
-    });
-    if (response.getResponseCode() !== 200) {
-      console.error('❌ buscarDirigentesNominataGabineteOuDistrito:', response.getResponseCode(), response.getContentText());
-      return [];
-    }
-    var dirigentes = JSON.parse(response.getContentText() || '[]');
-    return (dirigentes || []).map(function (dirigente) {
-      return {
-        id: dirigente.id,
-        clube: dirigente.clube,
-        cargo: dirigente.cargo,
-        nome: dirigente.nome,
-        url_foto: dirigente.url_foto,
-        linkFoto: dirigente.url_foto,
-        anoLeonistico: dirigente.ano_leonistico,
-        ano_leonistico: dirigente.ano_leonistico,
-        data_cadastro: dirigente.data_cadastro,
-        data_edicao: dirigente.data_edicao,
-        formacao: dirigente.formacao,
-        profissao: dirigente.profissao,
-        created_at: dirigente.created_at,
-        updated_at: dirigente.updated_at,
-        clube_origem_id: dirigente.clube_origem_id || null,
-        pessoa_rtma_id: dirigente.pessoa_rtma_id || null,
-        pessoa_amigo_id: dirigente.pessoa_amigo_id || null
-      };
-    });
-  } catch (e) {
-    console.error('❌ buscarDirigentesNominataGabineteOuDistrito:', e);
-    return [];
-  }
-}
-
-/**
- * Para dirigentes da nominata sem clube_origem_id: resolve clube de origem via pessoas_rtma ou amigos_conselheiros.
- * @param {Array<Object>} dirigentesList
- * @return {{ porPessoaRtmaId: Object<string, {clube_nome: string, clube_id: string|null}>, porAmigoId: Object<string, {clube_nome: string, clube_id: string|null}> }}
- */
-async function rtmaBuscarMapaClubeOrigemPorVinculosNominata_(dirigentesList) {
-  var vazio = { porPessoaRtmaId: {}, porAmigoId: {} };
-  if (!dirigentesList || !dirigentesList.length) return vazio;
-  var rtmaIds = [];
-  var amigoIds = [];
-  for (var i = 0; i < dirigentesList.length; i++) {
-    var d = dirigentesList[i];
-    if (!d || (d.clube_origem_id != null && String(d.clube_origem_id).trim() !== '')) continue;
-    if (d.pessoa_rtma_id != null && String(d.pessoa_rtma_id).trim() !== '') {
-      rtmaIds.push(String(d.pessoa_rtma_id).trim());
-    }
-    if (d.pessoa_amigo_id != null && String(d.pessoa_amigo_id).trim() !== '') {
-      amigoIds.push(String(d.pessoa_amigo_id).trim());
-    }
-  }
-  function uniq(arr) {
-    var seen = {};
-    var out = [];
-    for (var j = 0; j < arr.length; j++) {
-      var x = arr[j];
-      if (!x || seen[x]) continue;
-      seen[x] = true;
-      out.push(x);
-    }
-    return out;
-  }
-  rtmaIds = uniq(rtmaIds);
-  amigoIds = uniq(amigoIds);
-  if (!rtmaIds.length && !amigoIds.length) return vazio;
-
-  var key = obterServiceRoleKeySupabaseUnificado();
-  var base = SUPABASE_URL_LEO;
-  var headers = {
-    apikey: key,
-    Authorization: 'Bearer ' + key,
-    'Content-Type': 'application/json'
-  };
-
-  async function fetchInFilter(table, ids, chunkSize) {
-    var map = {};
-    var size = chunkSize || 40;
-    for (var c = 0; c < ids.length; c += size) {
-      var chunk = ids.slice(c, c + size);
-      if (!chunk.length) continue;
-      var inPart = chunk.join(',');
-      var url = base + '/rest/v1/' + table + '?id=in.(' + inPart + ')&select=id,clube_nome,clube_id';
-      var response = await gasStyleFetch(url, {
-        method: 'GET',
-        headers: headers,
-        muteHttpExceptions: true
-      });
-      if (response.getResponseCode() !== 200) {
-        console.error('rtmaBuscarMapaClubeOrigemPorVinculosNominata_:', table, response.getResponseCode(), response.getContentText());
-        continue;
-      }
-      var rows = JSON.parse(response.getContentText() || '[]');
-      for (var r = 0; r < rows.length; r++) {
-        var row = rows[r];
-        if (!row || row.id == null) continue;
-        var idStr = String(row.id).trim();
-        map[idStr] = {
-          clube_nome: row.clube_nome != null ? String(row.clube_nome).trim() : '',
-          clube_id: row.clube_id != null ? String(row.clube_id).trim() : null
-        };
-      }
-    }
-    return map;
-  }
-
-  return {
-    porPessoaRtmaId: rtmaIds.length ? fetchInFilter('pessoas_rtma', rtmaIds, 40) : {},
-    porAmigoId: amigoIds.length ? fetchInFilter('amigos_conselheiros', amigoIds, 40) : {}
-  };
-}
-
-/**
  * Listar cargos da nominata por ano leonístico (para exibir no card da pessoa na tela Pessoas).
  * @param {string} anoLeonistico - AL no formato "AAAA-AAAA" (ex: "2025-2026")
  * @return {Array<{clube: string, nome: string, cargo: string}>}
  */
-async function listarCargosNominataPorAL(anoLeonistico) {
+function listarCargosNominataPorAL(anoLeonistico) {
   try {
     if (!anoLeonistico || String(anoLeonistico).trim() === '') return [];
     var RTMA_SUPABASE_CONFIG = {
@@ -295,7 +145,7 @@ async function listarCargosNominataPorAL(anoLeonistico) {
       serviceRoleKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzE5MDgyMSwiZXhwIjoyMDgyNzY2ODIxfQ.v5Eh3DgTDPnkaptB0wBR_pnafF-j9cX5snv8NdF8q6s'
     };
     var url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/nominata_dirigentes?ano_leonistico=eq.' + encodeURIComponent(String(anoLeonistico).trim()) + '&select=clube,nome,cargo';
-    var resp = await gasStyleFetch(url, {
+    var resp = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -380,7 +230,7 @@ function listarEventosCalendarioGoogle(calendarId, dataInicio, dataFim) {
  * @param {string} email - E-mail do usuário logado
  * @return {Object} { sucesso, calendarios: [{ id, nome, favorito }], erro? }
  */
-async function listarCalendariosParaAgenda(email) {
+function listarCalendariosParaAgenda(email) {
   try {
     var idsVistos = {};
     var lista = [];
@@ -395,7 +245,7 @@ async function listarCalendariosParaAgenda(email) {
     });
     if (email && String(email).trim()) {
       var url = cfs.url + '/rest/v1/portal_calendarios_usuario?email=eq.' + encodeURIComponent(String(email).trim()) + '&select=calendar_id,nome_exibicao';
-      var resp = await gasStyleFetch(url, { method: 'GET', headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey }, muteHttpExceptions: true });
+      var resp = UrlFetchApp.fetch(url, { method: 'GET', headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey }, muteHttpExceptions: true });
       if (resp.getResponseCode() === 200) {
         var rows = JSON.parse(resp.getContentText() || '[]');
         (rows || []).forEach(function(r) {
@@ -420,7 +270,7 @@ async function listarCalendariosParaAgenda(email) {
  * @param {string} nomeExibicao - Nome para exibir (opcional)
  * @return {Object} { sucesso, erro? }
  */
-async function adicionarCalendarioUsuario(email, calendarId, nomeExibicao) {
+function adicionarCalendarioUsuario(email, calendarId, nomeExibicao) {
   try {
     if (!email || !calendarId) return { sucesso: false, erro: 'E-mail e ID do calendário são obrigatórios' };
     var cfs = PORTAL_SUPABASE_CONFIG;
@@ -428,7 +278,7 @@ async function adicionarCalendarioUsuario(email, calendarId, nomeExibicao) {
     var nome = String(nomeExibicao || id).trim() || id;
     var url = cfs.url + '/rest/v1/portal_calendarios_usuario';
     var payload = JSON.stringify({ email: String(email).trim(), calendar_id: id, nome_exibicao: nome });
-    var resp = await gasStyleFetch(url, {
+    var resp = UrlFetchApp.fetch(url, {
       method: 'POST',
       headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates' },
       payload: payload,
@@ -450,12 +300,12 @@ async function adicionarCalendarioUsuario(email, calendarId, nomeExibicao) {
  * @param {string} calendarId - ID do calendário
  * @return {Object} { sucesso, erro? }
  */
-async function removerCalendarioUsuario(email, calendarId) {
+function removerCalendarioUsuario(email, calendarId) {
   try {
     if (!email || !calendarId) return { sucesso: false, erro: 'E-mail e ID do calendário são obrigatórios' };
     var cfs = PORTAL_SUPABASE_CONFIG;
     var url = cfs.url + '/rest/v1/portal_calendarios_usuario?email=eq.' + encodeURIComponent(String(email).trim()) + '&calendar_id=eq.' + encodeURIComponent(String(calendarId).trim());
-    var resp = await gasStyleFetch(url, { method: 'DELETE', headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey }, muteHttpExceptions: true });
+    var resp = UrlFetchApp.fetch(url, { method: 'DELETE', headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey }, muteHttpExceptions: true });
     return { sucesso: (resp.getResponseCode() >= 200 && resp.getResponseCode() < 300) };
   } catch (e) {
     console.error('removerCalendarioUsuario:', e);
@@ -470,12 +320,12 @@ async function removerCalendarioUsuario(email, calendarId) {
  * @param {string} dataFim - YYYY-MM-DD
  * @return {Object} { sucesso, eventos: [{ titulo, inicio, fim, allDay }], erro? }
  */
-async function listarEventosAgendasUsuario(email, dataInicio, dataFim) {
+function listarEventosAgendasUsuario(email, dataInicio, dataFim) {
   try {
     if (!email || !dataInicio || !dataFim) return { sucesso: false, eventos: [], erro: 'Parâmetros obrigatórios' };
     var cfs = PORTAL_SUPABASE_CONFIG;
     var url = cfs.url + '/rest/v1/portal_calendarios_usuario?email=eq.' + encodeURIComponent(String(email).trim()) + '&select=calendar_id';
-    var resp = await gasStyleFetch(url, { method: 'GET', headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey }, muteHttpExceptions: true });
+    var resp = UrlFetchApp.fetch(url, { method: 'GET', headers: { 'apikey': cfs.serviceRoleKey, 'Authorization': 'Bearer ' + cfs.serviceRoleKey }, muteHttpExceptions: true });
     if (resp.getResponseCode() !== 200) return { sucesso: true, eventos: [] };
     var rows = JSON.parse(resp.getContentText() || '[]');
     var ids = (rows || []).map(function(r) { return String(r.calendar_id || '').trim(); }).filter(function(id) { return id; });
@@ -641,7 +491,7 @@ function buscarNomesPorClube(clube) {
  * @param {string} anoLeonistico - Ano Leonístico
  * @returns {string|null} URL pública da foto no Supabase Storage ou null se falhar
  */
-async function uploadFotoDirigenteParaSupabase(fotoBase64, clube, nome, cargo, anoLeonistico) {
+function uploadFotoDirigenteParaSupabase(fotoBase64, clube, nome, cargo, anoLeonistico) {
   if (!fotoBase64 || fotoBase64.trim() === '') {
     return null;
   }
@@ -664,7 +514,7 @@ async function uploadFotoDirigenteParaSupabase(fotoBase64, clube, nome, cargo, a
     
     // Decodificar base64
     const blob = Utilities.newBlob(
-      Buffer.from(base64Data, "base64"),
+      Utilities.base64Decode(base64Data),
       'image/png',
       'foto.png'
     );
@@ -700,7 +550,7 @@ async function uploadFotoDirigenteParaSupabase(fotoBase64, clube, nome, cargo, a
     const bucket = 'nominata-fotos';
     const url = `${RTMA_SUPABASE_CONFIG.url}/storage/v1/object/${bucket}/${caminhoArquivo}`;
     
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'POST',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -755,7 +605,7 @@ function normalizarVinculoDirigente(vinculo) {
   return out;
 }
 
-async function salvarDirigente(clube, cargo, nome, fotoBase64, anoLeonistico, vinculo) {
+function salvarDirigente(clube, cargo, nome, fotoBase64, anoLeonistico, vinculo) {
   vinculo = normalizarVinculoDirigente(vinculo);
   console.log('💾 Salvando dirigente:', { clube, cargo, nome, anoLeonistico, temFoto: !!fotoBase64, vinculo: vinculo });
   let idemLock = null;
@@ -818,7 +668,7 @@ async function salvarDirigente(clube, cargo, nome, fotoBase64, anoLeonistico, vi
       return { sucesso: true, idempotente: true, dados: [{ id: cached.registroId }] };
     }
 
-    const responseExistente = await gasStyleFetch(urlExistente, {
+    const responseExistente = UrlFetchApp.fetch(urlExistente, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -835,7 +685,7 @@ async function salvarDirigente(clube, cargo, nome, fotoBase64, anoLeonistico, vi
       }
     }
 
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'POST',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -884,7 +734,7 @@ async function salvarDirigente(clube, cargo, nome, fotoBase64, anoLeonistico, vi
 /**
  * Editar dirigente existente
  */
-async function editarDirigente(clube, cargoOriginal, nomeOriginal, cargoNovo, nomeNovo, fotoBase64, anoLeonistico, vinculo) {
+function editarDirigente(clube, cargoOriginal, nomeOriginal, cargoNovo, nomeNovo, fotoBase64, anoLeonistico, vinculo) {
   vinculo = normalizarVinculoDirigente(vinculo);
   console.log('✏️ Editando dirigente:', { clube, cargoOriginal, nomeOriginal, cargoNovo, nomeNovo, anoLeonistico, vinculo: vinculo });
   
@@ -896,7 +746,7 @@ async function editarDirigente(clube, cargoOriginal, nomeOriginal, cargoNovo, no
     
     // Buscar o dirigente existente
     const urlBuscar = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/nominata_dirigentes?clube=eq.${encodeURIComponent(clube)}&cargo=eq.${encodeURIComponent(cargoOriginal)}&nome=eq.${encodeURIComponent(nomeOriginal)}&select=*`;
-    const responseBuscar = await gasStyleFetch(urlBuscar, {
+    const responseBuscar = UrlFetchApp.fetch(urlBuscar, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -950,7 +800,7 @@ async function editarDirigente(clube, cargoOriginal, nomeOriginal, cargoNovo, no
       dados.pessoa_amigo_id = vinculo.pessoa_amigo_id || null;
     }
     
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'PATCH',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -991,7 +841,7 @@ async function editarDirigente(clube, cargoOriginal, nomeOriginal, cargoNovo, no
 /**
  * Remover dirigente
  */
-async function removerDirigente(clube, cargo, nome) {
+function removerDirigente(clube, cargo, nome) {
   console.log('🗑️ Removendo dirigente:', { clube, cargo, nome });
   
   try {
@@ -1002,7 +852,7 @@ async function removerDirigente(clube, cargo, nome) {
     
     // Buscar o dirigente (ficha p/ revogar acesso) + id + foto
     const urlBuscar = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/nominata_dirigentes?clube=eq.${encodeURIComponent(clube)}&cargo=eq.${encodeURIComponent(cargo)}&nome=eq.${encodeURIComponent(nome)}&select=*`;
-    const responseBuscar = await gasStyleFetch(urlBuscar, {
+    const responseBuscar = UrlFetchApp.fetch(urlBuscar, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -1038,7 +888,7 @@ async function removerDirigente(clube, cargo, nome) {
         if (storagePathMatch) {
           const filePath = storagePathMatch[1];
           const urlDeleteFoto = `${RTMA_SUPABASE_CONFIG.url}/storage/v1/object/${filePath}`;
-          await gasStyleFetch(urlDeleteFoto, {
+          UrlFetchApp.fetch(urlDeleteFoto, {
             method: 'DELETE',
             headers: {
               'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -1054,7 +904,7 @@ async function removerDirigente(clube, cargo, nome) {
 
     // Remover do Supabase
     const url = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/nominata_dirigentes?id=eq.${dirigente.id}`;
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'DELETE',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -1329,7 +1179,7 @@ function validarEstruturaCampanhasCompleta() {
  * @param {string} token - Token JWT do Supabase Auth
  * @return {Object} Resultado da verificação
  */
-async function verificarAutenticacao(token) {
+function verificarAutenticacao(token) {
   try {
     // Obter Service Role Key das propriedades do script (não hardcoded)
     const props = PropertiesService.getScriptProperties();
@@ -1347,7 +1197,7 @@ async function verificarAutenticacao(token) {
     
     // Validar token JWT com Supabase
     const url = `${supabaseUrl}/auth/v1/user`;
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -1371,7 +1221,7 @@ async function verificarAutenticacao(token) {
     // Buscar dados adicionais na tabela usuarios_acessos
     const emailLower = (userData.email || '').toLowerCase().trim();
     const urlUsuarios = `${supabaseUrl}/rest/v1/usuarios_acessos?or=(email.eq.${encodeURIComponent(emailLower)},auth_user_id.eq.${userData.id})&select=id,clube_nome,tipo_acesso,ativo,clube_id`;
-    const responseUsuarios = await gasStyleFetch(urlUsuarios, {
+    const responseUsuarios = UrlFetchApp.fetch(urlUsuarios, {
       method: 'GET',
       headers: {
         'apikey': serviceRoleKey,
@@ -1466,13 +1316,13 @@ function obterAlAtual() {
  * E-mail (amigos_conselheiros) por ID da ficha.
  * @return {string|null} e-mail em minúsculas ou null
  */
-async function buscarEmailAmigoConselheiroPorId(amigoId) {
+function buscarEmailAmigoConselheiroPorId(amigoId) {
   try {
     if (!amigoId) return null;
     const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
     const supabaseUrl = SUPABASE_URL_LEO;
     const url = `${supabaseUrl}/rest/v1/amigos_conselheiros?id=eq.${encodeURIComponent(String(amigoId))}&select=Email,email&limit=1`;
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': serviceRoleKey,
@@ -1498,7 +1348,7 @@ async function buscarEmailAmigoConselheiroPorId(amigoId) {
  * E-mail da ficha RTMA por ID — a lista do modal vem de pessoas_rtma; tabela pessoas é só fallback legado.
  * @return {string|null} e-mail em minúsculas ou null
  */
-async function buscarEmailPessoasPorId(pessoaId) {
+function buscarEmailPessoasPorId(pessoaId) {
   try {
     if (!pessoaId) return null;
     const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
@@ -1511,7 +1361,7 @@ async function buscarEmailPessoasPorId(pessoaId) {
     };
     // Origem do vínculo: tabela pessoas_rtma (id da ficha no RTMA Supabase)
     const urlRtma = `${supabaseUrl}/rest/v1/pessoas_rtma?id=eq.${idEnc}&select=email&limit=1`;
-    const responseRtma = await gasStyleFetch(urlRtma, {
+    const responseRtma = UrlFetchApp.fetch(urlRtma, {
       method: 'GET',
       headers: headers,
       muteHttpExceptions: true
@@ -1525,7 +1375,7 @@ async function buscarEmailPessoasPorId(pessoaId) {
     }
     // Fallback: alguns fluxos antigos usavam a tabela pessoas
     const urlLeg = `${supabaseUrl}/rest/v1/pessoas?id=eq.${idEnc}&select=email&limit=1`;
-    const response = await gasStyleFetch(urlLeg, {
+    const response = UrlFetchApp.fetch(urlLeg, {
       method: 'GET',
       headers: headers,
       muteHttpExceptions: true
@@ -1558,7 +1408,7 @@ function buscarEmailPessoaRtmParaDirigente(clubeNome, nome, vinculo) {
   return buscarEmailNaNominataPorNome(nome, clubeNome);
 }
 
-async function buscarEmailNaNominataPorNome(nome, clubeNome) {
+function buscarEmailNaNominataPorNome(nome, clubeNome) {
   try {
     const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
     const supabaseUrl = SUPABASE_URL_LEO;
@@ -1601,7 +1451,7 @@ async function buscarEmailNaNominataPorNome(nome, clubeNome) {
     
     // 1) Mesmo clube (exact no RTMA) + nome, até 2000 linhas
     var url1 = supabaseUrl + '/rest/v1/pessoas?clube_nome=eq.' + encodeURIComponent(clubeT) + '&select=nome,email,clube_nome&limit=2000';
-    var r1 = await gasStyleFetch(url1, {
+    var r1 = UrlFetchApp.fetch(url1, {
       method: 'GET',
       headers: {
         'apikey': serviceRoleKey,
@@ -1618,7 +1468,7 @@ async function buscarEmailNaNominataPorNome(nome, clubeNome) {
     
     // 1b) Mesma lógica na tabela pessoas_rtma (onde as fichas reais do RTMA costumam estar)
     var url1rtma = supabaseUrl + '/rest/v1/pessoas_rtma?clube_nome=eq.' + encodeURIComponent(clubeT) + '&select=nome,email,clube_nome&limit=2000';
-    var r1rtma = await gasStyleFetch(url1rtma, {
+    var r1rtma = UrlFetchApp.fetch(url1rtma, {
       method: 'GET',
       headers: {
         'apikey': serviceRoleKey,
@@ -1639,7 +1489,7 @@ async function buscarEmailNaNominataPorNome(nome, clubeNome) {
     if (token.length >= 2) {
       var ilike = '*' + token + '*';
       var url3 = supabaseUrl + '/rest/v1/pessoas?select=nome,email,clube_nome&nome=ilike.' + encodeURIComponent(ilike) + '&limit=150';
-      var r3 = await gasStyleFetch(url3, {
+      var r3 = UrlFetchApp.fetch(url3, {
         method: 'GET',
         headers: {
           'apikey': serviceRoleKey,
@@ -1661,7 +1511,7 @@ async function buscarEmailNaNominataPorNome(nome, clubeNome) {
         }
       }
       var url3rtma = supabaseUrl + '/rest/v1/pessoas_rtma?select=nome,email,clube_nome&nome=ilike.' + encodeURIComponent(ilike) + '&limit=150';
-      var r3rtma = await gasStyleFetch(url3rtma, {
+      var r3rtma = UrlFetchApp.fetch(url3rtma, {
         method: 'GET',
         headers: {
           'apikey': serviceRoleKey,
@@ -1699,7 +1549,7 @@ async function buscarEmailNaNominataPorNome(nome, clubeNome) {
  * @param {string} tipoAcesso - Tipo de acesso esperado ('secretaria' ou 'campanhas')
  * @return {Object|null} { cargo: string, nome: string, al: string, email: string } ou null se não encontrar
  */
-async function buscarCargoNaNominata(email, clubeNome, alAtual, tipoAcesso) {
+function buscarCargoNaNominata(email, clubeNome, alAtual, tipoAcesso) {
   try {
     const props = PropertiesService.getScriptProperties();
     const serviceRoleKey = props.getProperty('SUPABASE_SERVICE_ROLE_KEY');
@@ -1712,7 +1562,7 @@ async function buscarCargoNaNominata(email, clubeNome, alAtual, tipoAcesso) {
     
     // Buscar cargo na nominata
     const urlNominata = `${supabaseUrl}/rest/v1/nominata_dirigentes?clube=eq.${encodeURIComponent(clubeNome)}&ano_leonistico=eq.${encodeURIComponent(alAtual)}&select=nome,cargo,ano_leonistico`;
-    const responseNominata = await gasStyleFetch(urlNominata, {
+    const responseNominata = UrlFetchApp.fetch(urlNominata, {
       method: 'GET',
       headers: {
         'apikey': serviceRoleKey,
@@ -1744,7 +1594,7 @@ async function buscarCargoNaNominata(email, clubeNome, alAtual, tipoAcesso) {
     
     if (email) {
       const urlPessoa = `${supabaseUrl}/rest/v1/pessoas?email=eq.${encodeURIComponent(email.toLowerCase().trim())}&select=nome,clube_nome&limit=1`;
-      const responsePessoa = await gasStyleFetch(urlPessoa, {
+      const responsePessoa = UrlFetchApp.fetch(urlPessoa, {
         method: 'GET',
         headers: {
           'apikey': serviceRoleKey,
@@ -1855,7 +1705,7 @@ function gerarSenhaProvisoria() {
  * @param {string} senhaProvisoria - Senha provisória
  * @return {Object} { sucesso: boolean, userId: string, erro: string }
  */
-async function criarUsuarioAuthComSenhaProvisoria(email, senhaProvisoria) {
+function criarUsuarioAuthComSenhaProvisoria(email, senhaProvisoria) {
   try {
     const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
     const supabaseUrl = SUPABASE_URL_LEO;
@@ -1872,7 +1722,7 @@ async function criarUsuarioAuthComSenhaProvisoria(email, senhaProvisoria) {
       }
     };
     
-    const responseAuth = await gasStyleFetch(urlAuth, {
+    const responseAuth = UrlFetchApp.fetch(urlAuth, {
       method: 'POST',
       headers: {
         'apikey': serviceRoleKey,
@@ -1898,7 +1748,7 @@ async function criarUsuarioAuthComSenhaProvisoria(email, senhaProvisoria) {
       if (responseCode === 422 || responseText.includes('already registered')) {
         // Buscar ID do usuário existente
         const urlGet = `${supabaseUrl}/auth/v1/admin/users?email=eq.${encodeURIComponent(email.toLowerCase().trim())}`;
-        const responseGet = await gasStyleFetch(urlGet, {
+        const responseGet = UrlFetchApp.fetch(urlGet, {
           method: 'GET',
           headers: {
             'apikey': serviceRoleKey,
@@ -2045,14 +1895,14 @@ function enviarEmailAcessoNominataUsuarioExistente(email, nome, cargo, tipoAcess
 /**
  * Cria ou atualiza linha em usuarios_acessos (tipo secretaria / campanhas) após vincular nominata.
  */
-async function upsertUsuariosAcessosAposNominata(email, clubeNome, tipoAcesso, authUserId) {
+function upsertUsuariosAcessosAposNominata(email, clubeNome, tipoAcesso, authUserId) {
   const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
   const supabaseUrl = SUPABASE_URL_LEO;
   if (!authUserId) return;
   const tipoTabela = tipoAcesso === 'presidente' ? 'distrito' : tipoAcesso;
   const emailNorm = String(email).toLowerCase().trim();
   const urlGet = `${supabaseUrl}/rest/v1/usuarios_acessos?email=eq.${encodeURIComponent(emailNorm)}`;
-  const responseGet = await gasStyleFetch(urlGet, {
+  const responseGet = UrlFetchApp.fetch(urlGet, {
     method: 'GET',
     headers: {
       'apikey': serviceRoleKey,
@@ -2065,7 +1915,7 @@ async function upsertUsuariosAcessosAposNominata(email, clubeNome, tipoAcesso, a
   const usuarios = JSON.parse(responseGet.getContentText() || '[]');
   if (usuarios && usuarios.length > 0) {
     const urlUpdate = `${supabaseUrl}/rest/v1/usuarios_acessos?id=eq.${usuarios[0].id}`;
-    await gasStyleFetch(urlUpdate, {
+    UrlFetchApp.fetch(urlUpdate, {
       method: 'PATCH',
       headers: {
         'apikey': serviceRoleKey,
@@ -2083,7 +1933,7 @@ async function upsertUsuariosAcessosAposNominata(email, clubeNome, tipoAcesso, a
   } else {
     let clubeId = null;
     const urlClube = `${supabaseUrl}/rest/v1/clubes?nome=eq.${encodeURIComponent(clubeNome)}&select=id&limit=1`;
-    const responseClube = await gasStyleFetch(urlClube, {
+    const responseClube = UrlFetchApp.fetch(urlClube, {
       method: 'GET',
       headers: {
         'apikey': serviceRoleKey,
@@ -2097,7 +1947,7 @@ async function upsertUsuariosAcessosAposNominata(email, clubeNome, tipoAcesso, a
       if (clubes && clubes.length > 0) clubeId = clubes[0].id;
     }
     const urlInsert = `${supabaseUrl}/rest/v1/usuarios_acessos`;
-    await gasStyleFetch(urlInsert, {
+    UrlFetchApp.fetch(urlInsert, {
       method: 'POST',
       headers: {
         'apikey': serviceRoleKey,
@@ -2122,13 +1972,13 @@ async function upsertUsuariosAcessosAposNominata(email, clubeNome, tipoAcesso, a
  * Exclui o usuário no Supabase Auth (API admin). Só chamar se não houver outro acesso em usuarios_acessos.
  * @return {Object} { sucesso: boolean, erro?: string }
  */
-async function excluirUsuarioAuthSupabase(userId) {
+function excluirUsuarioAuthSupabase(userId) {
   if (!userId) return { sucesso: false, erro: 'userId vazio' };
   try {
     const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
     const supabaseUrl = SUPABASE_URL_LEO;
     const url = supabaseUrl + '/auth/v1/admin/users/' + encodeURIComponent(String(userId));
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'DELETE',
       headers: {
         'apikey': serviceRoleKey,
@@ -2153,7 +2003,7 @@ async function excluirUsuarioAuthSupabase(userId) {
  * Cargos sem provisionamento automático (ex.: Presidente) são ignorados, como no fluxo de criação.
  * @return {Object} { ignorado?, sucesso, authExcluido?, authMantido?, aviso? }
  */
-async function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirigenteRow) {
+function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirigenteRow) {
   const tipoAcesso = determinarTipoAcessoPorCargo(cargo);
   if (tipoAcesso !== 'secretaria' && tipoAcesso !== 'campanhas') {
     return { ignorado: true, sucesso: true };
@@ -2181,7 +2031,7 @@ async function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirige
   const serviceRoleKey = obterServiceRoleKeySupabaseUnificado();
   const supabaseUrl = SUPABASE_URL_LEO;
   const urlLinhas = supabaseUrl + '/rest/v1/usuarios_acessos?email=eq.' + encodeURIComponent(emailNorm) + '&clube_nome=eq.' + encodeURIComponent(clubeNome) + '&tipo_acesso=eq.' + encodeURIComponent(tipoTabela) + '&select=id,auth_user_id';
-  const rGet = await gasStyleFetch(urlLinhas, {
+  const rGet = UrlFetchApp.fetch(urlLinhas, {
     method: 'GET',
     headers: {
       'apikey': serviceRoleKey,
@@ -2200,7 +2050,7 @@ async function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirige
     const idL = linhas[i].id;
     if (idL == null) continue;
     const urlDel = supabaseUrl + '/rest/v1/usuarios_acessos?id=eq.' + encodeURIComponent(String(idL));
-    await gasStyleFetch(urlDel, {
+    UrlFetchApp.fetch(urlDel, {
       method: 'DELETE',
       headers: {
         'apikey': serviceRoleKey,
@@ -2210,7 +2060,7 @@ async function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirige
       muteHttpExceptions: true
     });
   }
-  const rRest = await gasStyleFetch(
+  const rRest = UrlFetchApp.fetch(
     supabaseUrl + '/rest/v1/usuarios_acessos?email=eq.' + encodeURIComponent(emailNorm) + '&select=id',
     {
       method: 'GET',
@@ -2230,7 +2080,7 @@ async function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirige
     return { sucesso: true, aviso: 'nenhum_registro_acesso_nominata' };
   }
   const urlUser = supabaseUrl + '/auth/v1/admin/users?email=eq.' + encodeURIComponent(emailNorm);
-  const rU = await gasStyleFetch(urlUser, {
+  const rU = UrlFetchApp.fetch(urlUser, {
     method: 'GET',
     headers: {
       'apikey': serviceRoleKey,
@@ -2260,7 +2110,7 @@ async function revogarAcessoPortalAposExcluirNominata(clube, cargo, nome, dirige
  * Não usa validarAcessoPorCargo (AL) para evitar rejeitar registro recém-criado; o tipo vem do cargo.
  * @return {Object} { ignorado, sucesso, email, tipoAcesso, aviso, erro }
  */
-async function provisionarAcessoPortalAposNominata(clube, cargo, nome, anoLeonistico, vinculo) {
+function provisionarAcessoPortalAposNominata(clube, cargo, nome, anoLeonistico, vinculo) {
   vinculo = normalizarVinculoDirigente(vinculo);
   const tipoAcesso = determinarTipoAcessoPorCargo(cargo);
   if (tipoAcesso !== 'secretaria' && tipoAcesso !== 'campanhas') {
@@ -2282,7 +2132,7 @@ async function provisionarAcessoPortalAposNominata(clube, cargo, nome, anoLeonis
   }
   const supabaseUrl = SUPABASE_URL_LEO;
   const urlExiste = `${supabaseUrl}/auth/v1/admin/users?email=eq.${encodeURIComponent(email)}`;
-  const rExiste = await gasStyleFetch(urlExiste, {
+  const rExiste = UrlFetchApp.fetch(urlExiste, {
     method: 'GET',
     headers: {
       'apikey': serviceRoleKey,
@@ -2334,7 +2184,7 @@ async function provisionarAcessoPortalAposNominata(clube, cargo, nome, anoLeonis
  * @param {string} clubeNome - Nome do clube
  * @return {Object} { valido: boolean, tipoAcesso: string, cargo: string, email: string, erro: string, precisaCriarUsuario: boolean }
  */
-async function validarAcessoPorCargo(email, clubeNome) {
+function validarAcessoPorCargo(email, clubeNome) {
   try {
     const alAtual = obterAlAtual();
     
@@ -2404,7 +2254,7 @@ async function validarAcessoPorCargo(email, clubeNome) {
       
       if (serviceRoleKey) {
         const urlGet = `${supabaseUrl}/auth/v1/admin/users?email=eq.${encodeURIComponent(emailFinal.toLowerCase().trim())}`;
-        const responseGet = await gasStyleFetch(urlGet, {
+        const responseGet = UrlFetchApp.fetch(urlGet, {
           method: 'GET',
           headers: {
             'apikey': serviceRoleKey,
@@ -2453,7 +2303,7 @@ async function validarAcessoPorCargo(email, clubeNome) {
  * @param {string} clubeNome - Nome do clube
  * @return {Object} { sucesso: boolean, senhaProvisoria: string, erro: string }
  */
-async function criarUsuarioComSenhaProvisoria(email, clubeNome) {
+function criarUsuarioComSenhaProvisoria(email, clubeNome) {
   try {
     // Validar acesso primeiro
     const validacao = validarAcessoPorCargo(email, clubeNome);
@@ -2500,7 +2350,7 @@ async function criarUsuarioComSenhaProvisoria(email, clubeNome) {
     if (serviceRoleKey) {
       // Verificar se já existe registro
       const urlGet = `${supabaseUrl}/rest/v1/usuarios_acessos?email=eq.${encodeURIComponent(email.toLowerCase().trim())}`;
-      const responseGet = await gasStyleFetch(urlGet, {
+      const responseGet = UrlFetchApp.fetch(urlGet, {
         method: 'GET',
         headers: {
           'apikey': serviceRoleKey,
@@ -2516,7 +2366,7 @@ async function criarUsuarioComSenhaProvisoria(email, clubeNome) {
         if (usuarios && usuarios.length > 0) {
           // Atualizar registro existente
           const urlUpdate = `${supabaseUrl}/rest/v1/usuarios_acessos?id=eq.${usuarios[0].id}`;
-          await gasStyleFetch(urlUpdate, {
+          UrlFetchApp.fetch(urlUpdate, {
             method: 'PATCH',
             headers: {
               'apikey': serviceRoleKey,
@@ -2535,7 +2385,7 @@ async function criarUsuarioComSenhaProvisoria(email, clubeNome) {
           // Criar novo registro
           // Buscar clube_id
           const urlClube = `${supabaseUrl}/rest/v1/clubes?nome=eq.${encodeURIComponent(clubeNome)}&select=id&limit=1`;
-          const responseClube = await gasStyleFetch(urlClube, {
+          const responseClube = UrlFetchApp.fetch(urlClube, {
             method: 'GET',
             headers: {
               'apikey': serviceRoleKey,
@@ -2554,7 +2404,7 @@ async function criarUsuarioComSenhaProvisoria(email, clubeNome) {
           }
           
           const urlInsert = `${supabaseUrl}/rest/v1/usuarios_acessos`;
-          await gasStyleFetch(urlInsert, {
+          UrlFetchApp.fetch(urlInsert, {
             method: 'POST',
             headers: {
               'apikey': serviceRoleKey,
@@ -3507,7 +3357,7 @@ function portalNormalizarTextoBasico(valor) {
   return semAcento.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
-async function portalUploadArquivoParaStorageLocal(blob, nomeArquivo, pastaTag, nomeClube, registroId) {
+function portalUploadArquivoParaStorageLocal(blob, nomeArquivo, pastaTag, nomeClube, registroId) {
   try {
     if (!blob || !nomeArquivo || !pastaTag || !nomeClube) {
       throw new Error('Parâmetros obrigatórios faltando');
@@ -3549,7 +3399,7 @@ async function portalUploadArquivoParaStorageLocal(blob, nomeArquivo, pastaTag, 
 
     const mimeType = blob.getContentType() || 'application/octet-stream';
     const url = `${PORTAL_SUPABASE_CONFIG.url}/storage/v1/object/${bucket}/${caminhoArquivo}`;
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'POST',
       headers: {
         'apikey': PORTAL_SUPABASE_CONFIG.serviceRoleKey,
@@ -3605,7 +3455,7 @@ function uploadArquivo(base64, nomeArquivo, pastaTag, nomeClube, registroId = nu
     let blob;
     try {
       blob = Utilities.newBlob(
-        Buffer.from(base64Data, "base64"),
+        Utilities.base64Decode(base64Data),
         mimeType,
         nomeArquivo
       );
@@ -4000,7 +3850,7 @@ function uploadArquivo(base64, nomeArquivo, pastaTag, nomeClube, registroId = nu
  * @param {string} pastaTag - Tag da pasta ('FOTOS_OFICIAIS_ATIVIDADES', etc)
  * @return {string|null} URL da foto ou null se não encontrada
  */
-async function obterUrlFotoPorRegistroId(registroId, nomeClube, pastaTag) {
+function obterUrlFotoPorRegistroId(registroId, nomeClube, pastaTag) {
   try {
     if (!registroId || !nomeClube || !pastaTag) {
       console.warn('⚠️ obterUrlFotoPorRegistroId: Parâmetros inválidos', { registroId, nomeClube, pastaTag });
@@ -4056,7 +3906,7 @@ async function obterUrlFotoPorRegistroId(registroId, nomeClube, pastaTag) {
           prefix: caminhoBase,
           limit: 10
         });
-        const resp = await gasStyleFetch(urlList, {
+        const resp = UrlFetchApp.fetch(urlList, {
           method: 'POST',
           headers: {
             'apikey': PORTAL_SUPABASE_CONFIG.serviceRoleKey,
@@ -6676,7 +6526,7 @@ function fazerBackupAtividades(pastaDestino) {
 }
 
 // === FUNÇÕES DE TESTE E DIAGNÓSTICO ===
-async function testarSistemaUnificado() {
+function testarSistemaUnificado() {
   console.log('🔍 TESTE DO SISTEMA UNIFICADO LEO LD-8 COM VISÃO GERENCIAL');
   console.log('================================================================');
   
@@ -6741,7 +6591,7 @@ async function testarSistemaUnificado() {
   
   console.log('\n🎯 6. Testando eixos de campanhas...');
   try {
-    const eixos = await getEixos();
+    const eixos = getEixos();
     console.log(`✓ Eixos: ${eixos.eixo.length}, Eixos DM: ${eixos.eixoDM.length}`);
   } catch (error) {
     console.error(`✗ Erro ao testar eixos: ${error.message}`);
@@ -7009,7 +6859,7 @@ function analisarEstruturaReal() {
 // Observação: Apps Script pode reaproveitar instâncias por um tempo, então isso ajuda bastante.
 var __cacheDadosGerenciaisMem = {}; // { key: { ts:number, data:object } }
 
-async function getDadosGerenciais(regiao, resumoOnly) {
+function getDadosGerenciais(regiao, resumoOnly) {
   try {
     // === Supabase (sem planilhas) ===
     if (typeof PORTAL_USAR_SUPABASE !== 'undefined' && PORTAL_USAR_SUPABASE === true) {
@@ -7025,8 +6875,8 @@ async function getDadosGerenciais(regiao, resumoOnly) {
       console.log('getDadosGerenciais: buscando do Supabase...' + (resumoOnly ? ' (resumo)' : ''));
       // resumoOnly: menos colunas = menos payload e mais rápido para o dashboard
       const minimal = !!resumoOnly;
-      let todasCampanhas = await portalBuscarTodasCampanhas(true, minimal);
-      let todasAtividades = await portalBuscarTodasAtividades(true, minimal);
+      let todasCampanhas = portalBuscarTodasCampanhas(true, minimal);
+      let todasAtividades = portalBuscarTodasAtividades(true, minimal);
 
       if (regiao) {
         console.log('getDadosGerenciais: filtrando regiao ' + regiao);
@@ -7056,17 +6906,17 @@ async function getDadosGerenciais(regiao, resumoOnly) {
 
     console.log('🔍 Iniciando busca de dados gerenciais...');
     
-    const clubes = (typeof rtmaConfig.rtmaObterTodosClubes === "function" ? rtmaConfig.rtmaObterTodosClubes() : []).filter(clube => clube !== "DEMONSTRAÇÃO I CDM");
+    const clubes = Object.keys(PLANILHAS_CAMPANHAS).filter(clube => clube !== "DEMONSTRAÇÃO I CDM");
     console.log(`📊 Total de clubes a processar: ${clubes.length}`);
     
     let todasCampanhas = [];
     let todasAtividades = [];
     
     // Processar campanhas de todos os clubes
-    for (const [index, clube] of clubes.entries()) {
+    clubes.forEach((clube, index) => {
       try {
         console.log(`📢 Processando campanhas do clube ${index + 1}/${clubes.length}: ${clube}`);
-        const campanhasClube = await getCampanhasDoClube(clube);
+        const campanhasClube = getCampanhasDoClube(clube);
         if (campanhasClube && campanhasClube.length > 0) {
           todasCampanhas = todasCampanhas.concat(campanhasClube);
           console.log(`✅ ${campanhasClube.length} campanhas encontradas para ${clube}`);
@@ -7074,13 +6924,13 @@ async function getDadosGerenciais(regiao, resumoOnly) {
       } catch (error) {
         console.warn(`⚠️ Erro ao buscar campanhas de ${clube}:`, error);
       }
-    }
+    });
     
     // Processar atividades de todos os clubes
-    for (const [index, clube] of clubes.entries()) {
+    clubes.forEach((clube, index) => {
       try {
         console.log(`📅 Processando atividades do clube ${index + 1}/${clubes.length}: ${clube}`);
-        const atividadesClube = await getAtividadesDoClube(clube);
+        const atividadesClube = getAtividadesDoClube(clube);
         if (atividadesClube && atividadesClube.length > 0) {
           todasAtividades = todasAtividades.concat(atividadesClube);
           console.log(`✅ ${atividadesClube.length} atividades encontradas para ${clube}`);
@@ -7088,7 +6938,7 @@ async function getDadosGerenciais(regiao, resumoOnly) {
       } catch (error) {
         console.warn(`⚠️ Erro ao buscar atividades de ${clube}:`, error);
       }
-    }
+    });
     
     // Aplicar filtro por região se especificado
     if (regiao) {
@@ -7403,70 +7253,32 @@ function listarPessoasParaEventos(clube, incluirNominata = false) {
     try {
       const mapaIdParaNome = (typeof obterMapaClubesIdParaNomeSupabase === 'function')
         ? obterMapaClubesIdParaNomeSupabase() : {};
-      const precisaClubeOrigemParaInscricaoGabinete =
-        String(clubeNome).toLowerCase().indexOf('gabinete distrital') >= 0;
-      const inscricaoComoGabineteOuDistritoNome =
-        precisaClubeOrigemParaInscricaoGabinete ||
-        String(clubeNome).toLowerCase().indexOf('distrito leo ld-8') >= 0;
-
-      var nominataDirigentesList = [];
-      if (inscricaoComoGabineteOuDistritoNome && typeof buscarDirigentesNominataGabineteOuDistrito === 'function') {
-        nominataDirigentesList = buscarDirigentesNominataGabineteOuDistrito() || [];
-      } else {
-        const clubesNominata = [clubeNome, 'Gabinete Distrital', 'Distrito LEO LD-8']
-          .map(c => String(c || '').trim())
-          .filter(Boolean);
-        const visitados = {};
-        clubesNominata.forEach(clubeAlvo => {
-          if (visitados[clubeAlvo]) return;
-          visitados[clubeAlvo] = true;
-          const dirs = buscarTodosDirigentes(clubeAlvo, null, null, null) || [];
-          dirs.forEach(function (d) {
-            nominataDirigentesList.push(d);
-          });
-        });
-      }
-
-      const vistoIdNominata = {};
-      const vinculosOrigem = precisaClubeOrigemParaInscricaoGabinete
-        ? rtmaBuscarMapaClubeOrigemPorVinculosNominata_(nominataDirigentesList)
-        : { porPessoaRtmaId: {}, porAmigoId: {} };
-      nominataDirigentesList.forEach(dirigente => {
-        if (!dirigente) return;
-        if (dirigente.id && vistoIdNominata[String(dirigente.id)]) return;
-        if (dirigente.id) vistoIdNominata[String(dirigente.id)] = true;
-        const nome = String(dirigente.nome || '').trim();
-        if (!nome) return;
-        const tipo = String(dirigente.cargo || 'Nominata').trim();
-        const chave = `${nome}::${tipo}`;
-        if (!mapa[chave]) {
-          mapa[chave] = true;
-          const obj = { nome: nome, tipo: tipo, origem: 'Nominata' };
-          if (precisaClubeOrigemParaInscricaoGabinete) {
-            var coId = (dirigente.clube_origem_id != null && String(dirigente.clube_origem_id).trim() !== '')
-              ? String(dirigente.clube_origem_id).trim() : '';
-            var coNome = '';
-            if (coId) {
-              obj.clube_origem_id = coId;
-              if (mapaIdParaNome[coId]) coNome = String(mapaIdParaNome[coId]).trim();
-            } else {
-              var prId = dirigente.pessoa_rtma_id != null ? String(dirigente.pessoa_rtma_id).trim() : '';
-              var paId = dirigente.pessoa_amigo_id != null ? String(dirigente.pessoa_amigo_id).trim() : '';
-              var rowRtma = prId && vinculosOrigem.porPessoaRtmaId ? vinculosOrigem.porPessoaRtmaId[prId] : null;
-              var rowAmigo = paId && vinculosOrigem.porAmigoId ? vinculosOrigem.porAmigoId[paId] : null;
-              var row = rowRtma || rowAmigo;
-              if (row) {
-                if (row.clube_id) {
-                  obj.clube_origem_id = String(row.clube_id).trim();
-                  if (mapaIdParaNome[row.clube_id]) coNome = String(mapaIdParaNome[row.clube_id]).trim();
-                }
-                if (row.clube_nome) coNome = String(row.clube_nome).trim();
+      const clubesNominata = [clubeNome, 'Gabinete Distrital', 'Distrito LEO LD-8']
+        .map(c => String(c || '').trim())
+        .filter(Boolean);
+      const visitados = {};
+      clubesNominata.forEach(clubeAlvo => {
+        if (visitados[clubeAlvo]) return;
+        visitados[clubeAlvo] = true;
+        const ehGabineteDistrital = String(clubeAlvo).toLowerCase().indexOf('gabinete distrital') >= 0;
+        const dirigentes = buscarTodosDirigentes(clubeAlvo, null, null, null) || [];
+        dirigentes.forEach(dirigente => {
+          const nome = String(dirigente.nome || '').trim();
+          if (!nome) return;
+          const tipo = String(dirigente.cargo || 'Nominata').trim();
+          const chave = `${nome}::${tipo}`;
+          if (!mapa[chave]) {
+            mapa[chave] = true;
+            const obj = { nome: nome, tipo: tipo, origem: 'Nominata' };
+            if (ehGabineteDistrital && dirigente.clube_origem_id) {
+              obj.clube_origem_id = String(dirigente.clube_origem_id).trim();
+              if (mapaIdParaNome[dirigente.clube_origem_id]) {
+                obj.clube_origem_nome = String(mapaIdParaNome[dirigente.clube_origem_id]).trim();
               }
             }
-            if (coNome) obj.clube_origem_nome = coNome;
+            pessoas.push(obj);
           }
-          pessoas.push(obj);
-        }
+        });
       });
     } catch (error) {
       console.error('Erro ao buscar nominata para eventos:', error);
@@ -7529,7 +7341,7 @@ function registrarInscricaoEventoComComprovante(dados) {
       const mimeFromDataUrl = parts.length > 1 ? (parts[0].match(/data:(.*);base64/) || [])[1] : null;
       const mimeType = dados.comprovanteMime || mimeFromDataUrl || 'application/octet-stream';
 
-      const bytes = Buffer.from(base64Data, "base64");
+      const bytes = Utilities.base64Decode(base64Data);
       const blob = Utilities.newBlob(bytes, mimeType, dados.comprovanteNome);
 
       comprovanteInfo = portalUploadComprovanteEvento(
@@ -8030,7 +7842,7 @@ function enviarComprovanteCamisaParaDrive(base64DataUrl, nomeArquivo) {
       mimeType = parts[0].match(/data:(.*);base64/)[1].trim();
     }
     var nome = (nomeArquivo && String(nomeArquivo).trim()) ? String(nomeArquivo).trim() : 'comprovante_' + new Date().getTime();
-    var bytes = Buffer.from(base64Data, "base64");
+    var bytes = Utilities.base64Decode(base64Data);
     var blob = Utilities.newBlob(bytes, mimeType, nome);
 
     var folder = DriveApp.getFolderById(CAMISAS_PASTA_COMPROVANTES_ID);
@@ -8110,7 +7922,7 @@ function registrarInscricaoConvidadoExterno(dados) {
     const base64Data = parts.length > 1 ? parts[1] : parts[0];
     const mimeFromDataUrl = parts.length > 1 ? (parts[0].match(/data:(.*);base64/) || [])[1] : null;
     const mimeType = dados.comprovanteMime || mimeFromDataUrl || 'application/octet-stream';
-    const bytes = Buffer.from(base64Data, "base64");
+    const bytes = Utilities.base64Decode(base64Data);
     const blob = Utilities.newBlob(bytes, mimeType, dados.comprovanteNome);
 
     var nomesParaUpload = pessoas.map(function(p) { return p.nome; }).join(', ');
@@ -8261,7 +8073,7 @@ function registrarInscricoesEventoEmLoteInterno_(dados, blobComprovanteOpcional)
       const mimeFromDataUrl = parts.length > 1 ? (parts[0].match(/data:(.*);base64/) || [])[1] : null;
       const mimeType = dados.comprovanteMime || mimeFromDataUrl || 'application/octet-stream';
 
-      const bytes = Buffer.from(base64Data, "base64");
+      const bytes = Utilities.base64Decode(base64Data);
       const blob = Utilities.newBlob(bytes, mimeType, dados.comprovanteNome);
 
       comprovanteInfo = portalUploadComprovanteEvento(
@@ -9207,7 +9019,7 @@ function obterCacheValidacaoAlimentacao(eventoId) {
  * @param {Array<{inscricaoId:string,pessoaNome:string,pessoaTipo?:string,clubeNome?:string}>} inscritos
  * @returns {Array<Blob>} Array de blobs PDF (pode ser vazio em caso de erro)
  */
-async function gerarAnexosPassaportes(eventoId, eventoNome, clubeNome, inscritos) {
+function gerarAnexosPassaportes(eventoId, eventoNome, clubeNome, inscritos) {
   var anexos = [];
   var docsParaExcluir = [];
   if (!inscritos || inscritos.length === 0) return anexos;
@@ -9220,7 +9032,7 @@ async function gerarAnexosPassaportes(eventoId, eventoNome, clubeNome, inscritos
       if (!inscricaoId) continue;
       try {
         var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(inscricaoId);
-        var qrBlob = await gasStyleFetch(qrUrl, { muteHttpExceptions: true }).getBlob();
+        var qrBlob = UrlFetchApp.fetch(qrUrl, { muteHttpExceptions: true }).getBlob();
         var doc = DocumentApp.create('Passaporte_' + inscricaoId.substring(0, 8) + '_' + Date.now());
         var body = doc.getBody();
         body.clear();
@@ -9364,7 +9176,7 @@ function enviarEmailResumoInscricoesEvento(eventoId, eventoNome, loteNome, clube
  * @param {string} [eventoFotoUrl] - URL da logo/foto do evento (opcional). Se informada, é exibida no topo do passaporte.
  * @returns {Object} { url?: string, erro?: string }
  */
-async function criarRascunhoEmailPassaportesClube(eventoId, eventoNome, clubeNome, inscritos, emailDestino, eventoFotoUrl) {
+function criarRascunhoEmailPassaportesClube(eventoId, eventoNome, clubeNome, inscritos, emailDestino, eventoFotoUrl) {
   Logger.log('[Passaportes] Início - eventoId=' + eventoId + ', clube=' + clubeNome + ', inscritos=' + (inscritos ? inscritos.length : 0));
   try {
     if (!inscritos || inscritos.length === 0) {
@@ -9386,7 +9198,7 @@ async function criarRascunhoEmailPassaportesClube(eventoId, eventoNome, clubeNom
       try {
         var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(inscricaoId);
         Logger.log('[Passaportes] Buscando QR para ' + pessoaNome);
-        var qrBlob = await gasStyleFetch(qrUrl, { muteHttpExceptions: true }).getBlob();
+        var qrBlob = UrlFetchApp.fetch(qrUrl, { muteHttpExceptions: true }).getBlob();
         Logger.log('[Passaportes] QR ok, criando Document');
         var doc = DocumentApp.create('Passaporte_' + inscricaoId.substring(0, 8) + '_' + Date.now());
         var body = doc.getBody();
@@ -10138,7 +9950,7 @@ function _unificarSeparadoresCargoExcel(s) {
  * @param {object} configSupabase
  * @returns {Object.<string, string>} nomeNormalizado -> cargos unidos
  */
-async function _obterMapaCargosNominataClubeAlMult(clube, anoLeonistico, configSupabase) {
+function _obterMapaCargosNominataClubeAlMult(clube, anoLeonistico, configSupabase) {
   var out = {};
   try {
     if (typeof UrlFetchApp === 'undefined') return out;
@@ -10148,7 +9960,7 @@ async function _obterMapaCargosNominataClubeAlMult(clube, anoLeonistico, configS
     var al = String(anoLeonistico || AL_NOMINATA_RELATORIO_EVENTOS).trim() || AL_NOMINATA_RELATORIO_EVENTOS;
     var url = config.url + '/rest/v1/nominata_dirigentes?clube=eq.' + encodeURIComponent(String(clube).trim()) +
       '&ano_leonistico=eq.' + encodeURIComponent(al) + '&select=nome,cargo';
-    var resp = await gasStyleFetch(url, {
+    var resp = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': config.serviceRoleKey,
@@ -10759,7 +10571,7 @@ function adicionarComprovanteEnvio(dados) {
     const mimeFromDataUrl = parts.length > 1 ? (parts[0].match(/data:(.*);base64/) || [])[1] : null;
     const mimeType = dados.comprovanteMime || mimeFromDataUrl || 'application/octet-stream';
 
-    const bytes = Buffer.from(base64Data, "base64");
+    const bytes = Utilities.base64Decode(base64Data);
     const blob = Utilities.newBlob(bytes, mimeType, dados.comprovanteNome);
 
     const comprovanteInfo = portalUploadComprovanteEvento(
@@ -10805,7 +10617,7 @@ function uploadFotoEvento(dados) {
     const base64Data = parts.length > 1 ? parts[1] : parts[0];
     const mimeFromDataUrl = parts.length > 1 ? (parts[0].match(/data:(.*);base64/) || [])[1] : null;
     const mimeType = dados.fotoMime || mimeFromDataUrl || 'image/jpeg';
-    const bytes = Buffer.from(base64Data, "base64");
+    const bytes = Utilities.base64Decode(base64Data);
     const blob = Utilities.newBlob(bytes, mimeType, dados.fotoNome);
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (blob.getBytes().length > maxSize) {
@@ -11457,11 +11269,11 @@ function gerarRelatorioInscritosEventoConsolidadoDados(eventoId) {
 }
 
 // === MÓDULO DE CAMPANHAS ===
-async function getCampanhasDoClube(clube) {
+function getCampanhasDoClube(clube) {
   // === Supabase (sem planilhas) ===
   if (typeof PORTAL_USAR_SUPABASE !== 'undefined' && PORTAL_USAR_SUPABASE === true) {
     try {
-      return await portalBuscarCampanhas(clube);
+      return portalBuscarCampanhas(clube);
     } catch (e) {
       console.error('Erro Supabase (campanhas):', e);
       return [];
@@ -11593,16 +11405,18 @@ function criarAbaCampanhas(ss) {
   return sheet;
 }
 
-async function getEixos() {
+function getEixos() {
   try {
-    const configAtiva = await portalBuscarConfiguracaoAtiva();
-    if (!configAtiva || !configAtiva.al) return { eixo: [], eixoDM: [] };
-    const todos = await portalListarEixosCampanha(configAtiva.al);
-    const eixo = todos.filter(e => e.tipo === 'd8').map(e => e.nome);
-    const eixoDM = todos.filter(e => e.tipo === 'dm').map(e => e.nome);
+    const ss = SpreadsheetApp.openById(CAMPANHAS_SHEET_ID);
+    const sheet = ss.getSheetByName(EIXOS_TAB);
+    if (!sheet) return { eixo: [], eixoDM: [] };
+
+    const eixo = sheet.getRange("A2:A").getValues().flat().filter(e => e);
+    const eixoDM = sheet.getRange("B2:B").getValues().flat().filter(e => e);
+
     return { eixo, eixoDM };
   } catch (error) {
-    console.error('Erro ao buscar eixos:', error);
+    console.error("Erro ao buscar eixos:", error);
     return { eixo: [], eixoDM: [] };
   }
 }
@@ -12211,32 +12025,31 @@ function excluirMidiaAtividade(atividadeId, urlMidia) {
 }
 
 // === MÓDULO DE ATIVIDADES ===
-async function obterDadosResumoClube(clube) {
+function obterDadosResumoClube(clube) {
   try {
-    const [campanhas, atividades] = await Promise.all([
-      getCampanhasDoClube(clube),
-      getAtividadesDoClube(clube),
-    ]);
+    const campanhas = getCampanhasDoClube(clube);
+    const atividades = getAtividadesDoClube(clube);
+    
     return {
       campanhas: campanhas || [],
-      atividades: atividades || [],
+      atividades: atividades || []
     };
   } catch (error) {
     console.error('Erro ao obter dados do resumo do clube:', error);
     return {
       campanhas: [],
-      atividades: [],
+      atividades: []
     };
   }
 }
 
-async function getAtividadesDoClube(clube) {
+function getAtividadesDoClube(clube) {
   console.log(`Buscando atividades para o clube: ${clube}`);
 
   // === Supabase (sem planilhas) ===
   if (typeof PORTAL_USAR_SUPABASE !== 'undefined' && PORTAL_USAR_SUPABASE === true) {
     try {
-      return await portalBuscarAtividades(clube);
+      return portalBuscarAtividades(clube);
     } catch (e) {
       console.error('Erro Supabase (atividades):', e);
       return [];
@@ -13619,7 +13432,7 @@ function uploadArquivoDrive(base64, nomeArquivo, nomeClube, driveId = null) {
     console.log(`Fazendo upload de ${nomeArquivo} para o clube ${nomeClube}`);
     
     // Converter base64 para blob
-    const blob = Buffer.from(base64, "base64");
+    const blob = Utilities.base64Decode(base64);
     const mimeType = obterMimeTypePorExtensao(nomeArquivo);
     const blobFile = Utilities.newBlob(blob, mimeType, nomeArquivo);
     
@@ -14451,7 +14264,7 @@ function uploadArquivoDriveCompartilhado(dadosBase64, nomeArquivo, mimeType, dri
     const pastaDestino = DriveApp.getFolderById(pastaDestinoId);
     
     // Converter base64 para Blob
-    const blob = Utilities.newBlob(Buffer.from(dadosBase64, "base64"), mimeType, nomeArquivo);
+    const blob = Utilities.newBlob(Utilities.base64Decode(dadosBase64), mimeType, nomeArquivo);
     
     // Criar arquivo na pasta
     const arquivo = pastaDestino.createFile(blob);
@@ -15061,8 +14874,8 @@ function buscarTodasCampanhasDistrito() {
     
     // Obter todos os clubes
     var clubes = [];
-    if (typeof rtmaConfig.rtmaObterTodosClubes === 'function') {
-      clubes = rtmaConfig.rtmaObterTodosClubes();
+    if (typeof rtmaObterTodosClubes === 'function') {
+      clubes = rtmaObterTodosClubes();
     } else if (typeof RTMA_REGIOES !== 'undefined') {
       Object.values(RTMA_REGIOES).forEach(clubesRegiao => {
         clubes.push(...clubesRegiao);
@@ -15702,8 +15515,144 @@ function leoObterUrlWebAppRecuperacaoSenha() {
 }
 
 // Função principal para servir páginas baseada em parâmetros
-// doGet removed (GAS web app handler)
+function doGet(e) {
+  // Suporte para API de validação de acesso por cargo
+  if (e && e.parameter && e.parameter.api === 'validarAcessoPorCargo') {
+    const email = e.parameter.email || '';
+    const clube = e.parameter.clube || '';
+    
+    if (!clube) {
+      return ContentService.createTextOutput(JSON.stringify({
+        valido: false,
+        erro: 'Clube é obrigatório'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const resultado = validarAcessoPorCargo(email || null, clube);
+    return ContentService.createTextOutput(JSON.stringify(resultado))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  // Suporte para API de criar usuário com senha provisória
+  if (e && e.parameter && e.parameter.api === 'criarUsuarioComSenhaProvisoria') {
+    const email = e.parameter.email || '';
+    const clube = e.parameter.clube || '';
+    
+    if (!email || !clube) {
+      return ContentService.createTextOutput(JSON.stringify({
+        sucesso: false,
+        erro: 'Email e clube são obrigatórios'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const resultado = criarUsuarioComSenhaProvisoria(email, clube);
+    return ContentService.createTextOutput(JSON.stringify(resultado))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const page = e.parameter.page;
+  
+  if (page === 'drive') {
+    const driveId = e.parameter.driveId;
+    
+    if (!driveId) {
+      return HtmlService.createHtmlOutput('<h1>Drive ID não fornecido</h1>');
+    }
+    
+    return HtmlService.createHtmlOutputFromFile('drive')
+      .setTitle('Drive Compartilhado | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
 
+  if (page === 'rtma') {
+    return HtmlService.createHtmlOutputFromFile('rtma')
+      .setTitle('RTMA | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  if (page === 'recuperar_senha') {
+    return HtmlService.createHtmlOutputFromFile('recuperar_senha')
+      .setTitle('Recuperar Senha | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  if (page === 'email_enviado') {
+    return HtmlService.createHtmlOutputFromFile('email_enviado')
+      .setTitle('Email Enviado | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  if (page === 'redefinir_senha') {
+    return HtmlService.createHtmlOutputFromFile('redefinir_senha')
+      .setTitle('Redefinir Senha | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  if (page === 'evento_convidados') {
+    var eventoId = (e.parameter.evento || e.parameter.eventoId || e.parameter.e || '').trim();
+    var loteId = (e.parameter.lote || e.parameter.loteId || e.parameter.l || '').trim();
+    var template = HtmlService.createTemplateFromFile('form_evento_convidados');
+    template.eventoIdJson = JSON.stringify(eventoId);
+    template.loteIdJson = JSON.stringify(loteId);
+    return template.evaluate()
+      .setTitle('Inscrição Convidado | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  if (page === 'camisas_enumeradas') {
+    var templateCamisas = HtmlService.createTemplateFromFile('camisas_enumeradas');
+    return templateCamisas.evaluate()
+      .setTitle('Uniformes LD-8')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  if (page === 'camisas_enumeradas_api') {
+    var dadosCamisas = listarCamisasEnumeradas();
+    return ContentService
+      .createTextOutput(JSON.stringify(dadosCamisas || {}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (page === 'scanner_refeicoes') {
+    var eventoId = (e.parameter.evento || e.parameter.eventoId || e.parameter.e || '').trim();
+    var eventoNome = '';
+    if (eventoId && typeof portalListarEventos === 'function') {
+      try {
+        var eventos = portalListarEventos();
+        var ev = eventos ? eventos.find(function(ev) { return String(ev.id) === String(eventoId); }) : null;
+        if (ev && ev.nome) eventoNome = ev.nome;
+      } catch (err) {}
+    }
+    var template = HtmlService.createTemplateFromFile('scanner_refeicoes');
+    template.eventoIdJson = JSON.stringify(eventoId);
+    template.eventoNomeJson = JSON.stringify(eventoNome || '');
+    return template.evaluate()
+      .setTitle(eventoNome ? 'Scanner Passaporte – ' + eventoNome + ' | LEO Portal' : 'Scanner Passaporte | LEO Portal')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, user-scalable=no');
+  }
+  
+  // Página principal (sistema normal)
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('LEO Portal')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .setFaviconUrl('https://i.imgur.com/WZhg99L.png')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
 
 /**
  * Obter URL base do script para uso no frontend
@@ -15743,17 +15692,66 @@ function _cors(output) {
  * API do scanner (para página servida via ContentService).
  * Permite que o scanner use fetch no lugar de google.script.run (que só existe em HtmlService).
  */
-// doPost removed (GAS web app handler)
+function doPost(e) {
+  try {
+    var api = (e && e.parameter && e.parameter.api) ? String(e.parameter.api).trim() : '';
+    if (!api) {
+      return _cors(ContentService
+        .createTextOutput(JSON.stringify({ ok: false, erro: 'API não informada.' }))
+        .setMimeType(ContentService.MimeType.JSON));
+    }
 
+    var allow = {
+      obterCacheValidacaoAlimentacao: true,
+      obterCacheValidacaoCredenciamento: true,
+      obterCachePlenaria: true,
+      listarModalidadesEvento: true,
+      validarSaldoRefeicaoPassaporte: true,
+      consumirRefeicoesPassaporteLote: true,
+      credenciarInscricoesModalidadeLote: true,
+      credenciarPlenariaLote: true,
+      listarCredenciadosModalidade: true,
+      removerCredenciamentoModalidade: true,
+      listarCredenciadosPlenaria: true,
+      removerCredenciamentoPlenaria: true
+    };
+    if (!allow[api]) {
+      return _cors(ContentService
+        .createTextOutput(JSON.stringify({ ok: false, erro: 'API não permitida: ' + api }))
+        .setMimeType(ContentService.MimeType.JSON));
+    }
+
+    var payload = {};
+    try {
+      payload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
+    } catch (parseErr) {
+      payload = {};
+    }
+    var args = Array.isArray(payload.args) ? payload.args : [];
+
+    var fn = this[api];
+    if (typeof fn !== 'function') {
+      return _cors(ContentService
+        .createTextOutput(JSON.stringify({ ok: false, erro: 'Função não encontrada: ' + api }))
+        .setMimeType(ContentService.MimeType.JSON));
+    }
+
+    var result = fn.apply(this, args);
+    return _cors(ContentService
+      .createTextOutput(JSON.stringify(result === undefined ? null : result))
+      .setMimeType(ContentService.MimeType.JSON));
+  } catch (err) {
+    return _cors(ContentService
+      .createTextOutput(JSON.stringify({ ok: false, erro: (err && err.message) ? err.message : String(err) }))
+      .setMimeType(ContentService.MimeType.JSON));
+  }
+}
 
 // === RTMA (módulo integrado) ===
 // Retorna o HTML do RTMA (arquivo `rtma.html`) para ser carregado via iframe (srcdoc) no Portal.
 function getRtmaHtml() {
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const htmlPath = path.join(__dirname, '../public/rtma.html');
-    var html = fs.readFileSync(htmlPath, 'utf8');
+    var html = HtmlService.createHtmlOutputFromFile('rtma').getContent();
     
     // Verificar se o HTML foi carregado corretamente
     if (!html || html.trim() === '') {
@@ -15857,8 +15855,8 @@ function buscarOpcoesFiltrosDistritoPessoas(usuario) {
         clubesPermitidos = usuario.clubesPermitidos;
       } else if (usuario.isDistrito) {
         // Obter todos os clubes das regiões
-        if (typeof rtmaConfig.rtmaObterTodosClubes === 'function') {
-          clubesPermitidos = rtmaConfig.rtmaObterTodosClubes();
+        if (typeof rtmaObterTodosClubes === 'function') {
+          clubesPermitidos = rtmaObterTodosClubes();
         } else if (typeof RTMA_REGIOES !== 'undefined') {
           const todosClubes = [];
           Object.values(RTMA_REGIOES).forEach(function(clubes) {
@@ -16940,9 +16938,9 @@ function buscarCampanhaPorId(campanhaId, clube) {
  * Listar todas as configurações
  * @return {Object} Objeto com sucesso e configurações
  */
-async function listarConfiguracoes() {
+function listarConfiguracoes() {
   try {
-    const configuracoes = await portalListarConfiguracoes();
+    const configuracoes = portalListarConfiguracoes();
     return {
       sucesso: true,
       configuracoes: configuracoes
@@ -16963,18 +16961,25 @@ async function listarConfiguracoes() {
  * @param {string} configId - ID da configuração (opcional, se não fornecido cria nova)
  * @return {Object} Resultado da operação
  */
-async function salvarConfiguracao(dados, configId) {
+function salvarConfiguracao(dados, configId) {
   try {
     let resultado;
+    
     if (configId) {
-      resultado = await portalAtualizarConfiguracao(configId, dados);
+      // Atualizar configuração existente
+      resultado = portalAtualizarConfiguracao(configId, dados);
     } else {
-      resultado = await portalCriarConfiguracao(dados);
+      // Criar nova configuração
+      resultado = portalCriarConfiguracao(dados);
     }
+    
     return resultado;
   } catch (error) {
     console.error('Erro ao salvar configuração:', error);
-    return { sucesso: false, erro: error.message };
+    return {
+      sucesso: false,
+      erro: error.message
+    };
   }
 }
 
@@ -16983,12 +16988,15 @@ async function salvarConfiguracao(dados, configId) {
  * @param {string} configId - ID da configuração a ativar
  * @return {Object} Resultado da operação
  */
-async function ativarConfiguracao(configId) {
+function ativarConfiguracao(configId) {
   try {
-    return await portalAtivarConfiguracao(configId);
+    return portalAtivarConfiguracao(configId);
   } catch (error) {
     console.error('Erro ao ativar configuração:', error);
-    return { sucesso: false, erro: error.message };
+    return {
+      sucesso: false,
+      erro: error.message
+    };
   }
 }
 
@@ -16997,12 +17005,15 @@ async function ativarConfiguracao(configId) {
  * @param {string} configId - ID da configuração
  * @return {Object} Resultado da operação
  */
-async function excluirConfiguracao(configId) {
+function excluirConfiguracao(configId) {
   try {
-    return await portalExcluirConfiguracao(configId);
+    return portalExcluirConfiguracao(configId);
   } catch (error) {
     console.error('Erro ao excluir configuração:', error);
-    return { sucesso: false, erro: error.message };
+    return {
+      sucesso: false,
+      erro: error.message
+    };
   }
 }
 
@@ -17010,45 +17021,12 @@ async function excluirConfiguracao(configId) {
  * Buscar configuração ativa
  * @return {Object|null} Configuração ativa ou null
  */
-async function buscarConfiguracaoAtiva() {
+function buscarConfiguracaoAtiva() {
   try {
-    return await portalBuscarConfiguracaoAtiva();
+    return portalBuscarConfiguracaoAtiva();
   } catch (error) {
     console.error('Erro ao buscar configuração ativa:', error);
     return null;
-  }
-}
-
-// === EIXOS DE CAMPANHA ===
-
-async function listarEixosCampanha(al) {
-  try {
-    const eixos = await portalListarEixosCampanha(al);
-    return { sucesso: true, eixos };
-  } catch (error) {
-    console.error('Erro ao listar eixos de campanha:', error);
-    return { sucesso: false, eixos: [], erro: error.message };
-  }
-}
-
-async function salvarEixoCampanha(dados) {
-  try {
-    const eixo = await portalCriarEixoCampanha(dados);
-    return { sucesso: true, eixo };
-  } catch (error) {
-    console.error('Erro ao salvar eixo de campanha:', error);
-    return { sucesso: false, erro: error.message };
-  }
-}
-
-async function excluirEixoCampanha(id) {
-  if (!id) return { sucesso: false, erro: 'ID inválido.' };
-  try {
-    await portalExcluirEixoCampanha(id);
-    return { sucesso: true };
-  } catch (error) {
-    console.error('Erro ao excluir eixo de campanha:', error);
-    return { sucesso: false, erro: error.message };
   }
 }
 
@@ -17058,7 +17036,7 @@ async function excluirEixoCampanha(id) {
  * Listar todos os acessos cadastrados no Supabase
  * @return {Object} {sucesso: boolean, acessos: Array, erro: string|null}
  */
-async function listarAcessos() {
+function listarAcessos() {
   try {
     console.log('🔍 Buscando todos os acessos do Supabase');
     
@@ -17069,7 +17047,7 @@ async function listarAcessos() {
     };
     
     const url = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/usuarios_acessos?select=*&order=clube_nome.asc`;
-    const response = await gasStyleFetch(url, {
+    const response = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17145,10 +17123,10 @@ function formatarDataFundacaoBR(val) {
  * @param {string} [filtroStatus] - Opcional: filtrar por status
  * @return {Object} {sucesso: boolean, clubes: Array, erro: string|null}
  */
-async function listarClubesSupabase(filtroRegiao, filtroStatus) {
+function listarClubesSupabase(filtroRegiao, filtroStatus) {
   try {
     var url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/clubes?select=id,nome,email,status,data_fundacao,regiao,lions_patrocinador&order=nome.asc';
-    var response = await gasStyleFetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17159,7 +17137,7 @@ async function listarClubesSupabase(filtroRegiao, filtroStatus) {
     });
     if (response.getResponseCode() !== 200) {
       url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/clubes?select=id,nome,email&order=nome.asc';
-      response = await gasStyleFetch(url, {
+      response = UrlFetchApp.fetch(url, {
         method: 'GET',
         headers: {
           'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17332,12 +17310,12 @@ function obterResumoDelegadosClubes(dataReferenciaStr) {
  * @param {string} clubeNome - Nome do clube
  * @returns {string} E-mail ou vazio
  */
-async function obterEmailClubeSupabase(clubeNome) {
+function obterEmailClubeSupabase(clubeNome) {
   try {
     if (!clubeNome || !String(clubeNome).trim()) return '';
     var nome = String(clubeNome).trim();
     var url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/clubes?nome=eq.' + encodeURIComponent(nome) + '&select=email';
-    var response = await gasStyleFetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17363,7 +17341,7 @@ async function obterEmailClubeSupabase(clubeNome) {
  * @param {string} email - E-mail a salvar
  * @returns {{ sucesso: boolean, erro?: string }}
  */
-async function atualizarEmailClubeSupabase(clubeNome, email) {
+function atualizarEmailClubeSupabase(clubeNome, email) {
   try {
     if (!clubeNome || !String(clubeNome).trim()) return { sucesso: false, erro: 'Nome do clube é obrigatório.' };
     var nome = String(clubeNome).trim();
@@ -17379,7 +17357,7 @@ async function atualizarEmailClubeSupabase(clubeNome, email) {
       payload: JSON.stringify({ email: emailVal }),
       muteHttpExceptions: true
     };
-    var response = await gasStyleFetch(url, options);
+    var response = UrlFetchApp.fetch(url, options);
     if (response.getResponseCode() !== 200 && response.getResponseCode() !== 204) {
       return { sucesso: false, erro: response.getContentText() || 'Erro ao atualizar e-mail do clube.' };
     }
@@ -17400,7 +17378,7 @@ async function atualizarEmailClubeSupabase(clubeNome, email) {
  * @param {Object} dados - { nome?: string, email?: string }
  * @returns {{ sucesso: boolean, erro?: string }}
  */
-async function atualizarClubeSupabase(clubeId, dados) {
+function atualizarClubeSupabase(clubeId, dados) {
   try {
     if (!clubeId || !String(clubeId).trim()) return { sucesso: false, erro: 'ID do clube é obrigatório.' };
     var id = String(clubeId).trim();
@@ -17413,7 +17391,7 @@ async function atualizarClubeSupabase(clubeId, dados) {
     if (dados && dados.lions_patrocinador !== undefined) payload.lions_patrocinador = (dados.lions_patrocinador && String(dados.lions_patrocinador).trim()) ? String(dados.lions_patrocinador).trim() : null;
     if (Object.keys(payload).length === 0) return { sucesso: true };
     var url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/clubes?id=eq.' + encodeURIComponent(id);
-    var response = await gasStyleFetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       method: 'PATCH',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17442,7 +17420,7 @@ async function atualizarClubeSupabase(clubeId, dados) {
  * @param {Object} dados - { nome, email?, status?, data_fundacao?, regiao?, lions_patrocinador? }
  * @returns {{ sucesso: boolean, id?: string, erro?: string }}
  */
-async function inserirClube(dados) {
+function inserirClube(dados) {
   try {
     var nome = dados && dados.nome ? String(dados.nome).trim() : '';
     if (!nome) return { sucesso: false, erro: 'Nome do clube é obrigatório.' };
@@ -17453,7 +17431,7 @@ async function inserirClube(dados) {
     if (dados.regiao !== undefined && dados.regiao !== null) payload.regiao = String(dados.regiao).trim() || null;
     if (dados.lions_patrocinador !== undefined && dados.lions_patrocinador !== null) payload.lions_patrocinador = String(dados.lions_patrocinador).trim() || null;
     var url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/clubes';
-    var response = await gasStyleFetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       method: 'POST',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17485,11 +17463,11 @@ async function inserirClube(dados) {
  * @param {string} clubeId - UUID do clube
  * @returns {{ sucesso: boolean, erro?: string }}
  */
-async function excluirClube(clubeId) {
+function excluirClube(clubeId) {
   try {
     if (!clubeId || !String(clubeId).trim()) return { sucesso: false, erro: 'ID do clube é obrigatório.' };
     var url = RTMA_SUPABASE_CONFIG.url + '/rest/v1/clubes?id=eq.' + encodeURIComponent(String(clubeId).trim());
-    var response = await gasStyleFetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       method: 'DELETE',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17517,7 +17495,7 @@ async function excluirClube(clubeId) {
  * @param {Object} dados
  * @return {Object} {sucesso: boolean, erro: string|null}
  */
-async function criarClubeComAcesso(dados) {
+function criarClubeComAcesso(dados) {
   try {
     const nomeClube = String(dados && dados.nomeClube ? dados.nomeClube : '').trim();
     const email = String(dados && dados.email ? dados.email : '').trim().toLowerCase();
@@ -17528,7 +17506,7 @@ async function criarClubeComAcesso(dados) {
     }
 
     const urlEmail = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/usuarios_acessos?email=eq.${encodeURIComponent(email)}&select=id`;
-    const respEmail = await gasStyleFetch(urlEmail, {
+    const respEmail = UrlFetchApp.fetch(urlEmail, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17549,7 +17527,7 @@ async function criarClubeComAcesso(dados) {
     let clubeId = clubesMap[nomeClube];
     if (!clubeId) {
       const urlClube = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/clubes`;
-      const respClube = await gasStyleFetch(urlClube, {
+      const respClube = UrlFetchApp.fetch(urlClube, {
         method: 'POST',
         headers: {
           'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17571,7 +17549,7 @@ async function criarClubeComAcesso(dados) {
     }
 
     const urlAcesso = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/usuarios_acessos`;
-    const respAcesso = await gasStyleFetch(urlAcesso, {
+    const respAcesso = UrlFetchApp.fetch(urlAcesso, {
       method: 'POST',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17611,7 +17589,7 @@ async function criarClubeComAcesso(dados) {
  * @param {boolean} ativo - Novo status (true = ativo, false = inativo)
  * @return {Object} {sucesso: boolean, erro: string|null}
  */
-async function atualizarStatusAcesso(acessoId, ativo) {
+function atualizarStatusAcesso(acessoId, ativo) {
   try {
     console.log(`🔄 Atualizando status do acesso ${acessoId} para ${ativo ? 'ATIVO' : 'INATIVO'}`);
     
@@ -17624,7 +17602,7 @@ async function atualizarStatusAcesso(acessoId, ativo) {
     // Primeiro, verificar se o acesso existe e obter o ID correto
     // O acessoId deve ser um UUID
     let urlBusca = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/usuarios_acessos?id=eq.${encodeURIComponent(acessoId)}&select=id`;
-    let response = await gasStyleFetch(urlBusca, {
+    let response = UrlFetchApp.fetch(urlBusca, {
       method: 'GET',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -17657,7 +17635,7 @@ async function atualizarStatusAcesso(acessoId, ativo) {
     
     // Atualizar o status
     const urlUpdate = `${RTMA_SUPABASE_CONFIG.url}/rest/v1/usuarios_acessos?id=eq.${encodeURIComponent(idParaUpdate)}`;
-    response = await gasStyleFetch(urlUpdate, {
+    response = UrlFetchApp.fetch(urlUpdate, {
       method: 'PATCH',
       headers: {
         'apikey': RTMA_SUPABASE_CONFIG.serviceRoleKey,
@@ -18382,8 +18360,8 @@ function obterDatasTrimestreParaDMWrapper(trimestre) {
  */
 function obterTodosClubesRTMA() {
   try {
-    if (typeof rtmaConfig.rtmaObterTodosClubes === 'function') {
-      return rtmaConfig.rtmaObterTodosClubes();
+    if (typeof rtmaObterTodosClubes === 'function') {
+      return rtmaObterTodosClubes();
     }
     // Fallback: retornar clubes das regiões manualmente
     const todosClubes = [];
@@ -18399,9 +18377,12 @@ function obterTodosClubesRTMA() {
   }
 }
 
-async function calcularResumoDMComFiltrosDashboardWrapper(dataInicioPeriodo, dataFimPeriodo) {
+function calcularResumoDMComFiltrosDashboardWrapper(dataInicioPeriodo, dataFimPeriodo) {
   try {
-    if (typeof rtmaPessoas.calcularResumoDMComFiltrosDashboard !== 'function') {
+    // A função calcularResumoDMComFiltrosDashboard está definida em rtma_pessoas.js
+    // Como estamos no mesmo escopo do Apps Script, podemos chamá-la diretamente
+    // Mas precisamos garantir que ela existe antes de chamar
+    if (typeof calcularResumoDMComFiltrosDashboard === 'undefined') {
       console.error('Função calcularResumoDMComFiltrosDashboard não encontrada no escopo');
       return {
         sucesso: false,
@@ -18417,8 +18398,9 @@ async function calcularResumoDMComFiltrosDashboardWrapper(dataInicioPeriodo, dat
         }
       };
     }
-
-    const resultado = await rtmaPessoas.calcularResumoDMComFiltrosDashboard(dataInicioPeriodo, dataFimPeriodo);
+    
+    // Chamar a função do rtma_pessoas.js (que retorna {totalGeral, dadosPorClube, periodo})
+    const resultado = calcularResumoDMComFiltrosDashboard(dataInicioPeriodo, dataFimPeriodo);
     
     // Verificar se o resultado já está no formato esperado (com sucesso)
     if (resultado && resultado.sucesso !== undefined) {
@@ -18841,340 +18823,3 @@ function listarEventosCalendario(calendarId, dataInicio, dataFim) {
     return [];
   }
 }
-
-module.exports = {
-  obterServiceRoleKeySupabaseUnificado,
-  buscarTodosDirigentes,
-  buscarDirigentesNominataGabineteOuDistrito,
-  rtmaBuscarMapaClubeOrigemPorVinculosNominata_,
-  listarCargosNominataPorAL,
-  listarCalendariosGoogle,
-  listarEventosCalendarioGoogle,
-  listarCalendariosParaAgenda,
-  adicionarCalendarioUsuario,
-  removerCalendarioUsuario,
-  listarEventosAgendasUsuario,
-  listarClubesParaDirigenteGabinete,
-  listarPessoasParaDirigenteGabinete,
-  listarPessoasParaNominataClube,
-  buscarNomesPorClube,
-  uploadFotoDirigenteParaSupabase,
-  normalizarVinculoDirigente,
-  salvarDirigente,
-  editarDirigente,
-  removerDirigente,
-  testarSistemaCampanhasCompleto,
-  validarSistemaComentarios,
-  validarEstruturaCampanhasCompleta,
-  verificarAutenticacao,
-  verificarLogin,
-  obterAlAtual,
-  buscarEmailAmigoConselheiroPorId,
-  buscarEmailPessoasPorId,
-  buscarEmailPessoaRtmParaDirigente,
-  buscarEmailNaNominataPorNome,
-  buscarCargoNaNominata,
-  determinarTipoAcessoPorCargo,
-  gerarSenhaProvisoria,
-  criarUsuarioAuthComSenhaProvisoria,
-  enviarEmailSenhaProvisoria,
-  enviarEmailAcessoNominataUsuarioExistente,
-  upsertUsuariosAcessosAposNominata,
-  excluirUsuarioAuthSupabase,
-  revogarAcessoPortalAposExcluirNominata,
-  provisionarAcessoPortalAposNominata,
-  validarAcessoPorCargo,
-  criarUsuarioComSenhaProvisoria,
-  getAtividadePorId,
-  deletarAtividadeComVerificacao,
-  editarCampanhaComVerificacao,
-  deletarCampanhaComVerificacao,
-  registrarAtividadeComVerificacao,
-  registrarCampanhaComVerificacao,
-  deletarAtividade,
-  editarAtividadeComVerificacao,
-  editarAtividade,
-  gerarIdUnico,
-  gerarIdsAutomaticosAtividades,
-  adicionarIdNovaAtividade,
-  obterConfiguracaoRelatorio,
-  definirArquivoRelatorio,
-  obterAtividadesNaoReportadas,
-  adicionarIdUnicoSeNecessario,
-  validarIntegridadeUpload,
-  portalNormalizarTextoBasico,
-  portalUploadArquivoParaStorageLocal,
-  uploadArquivo,
-  obterUrlFotoPorRegistroId,
-  portalBuscarArquivosCampanha,
-  portalBuscarArquivosAtividade,
-  atualizarReferenciaArquivo,
-  testarCorrecoesUpload,
-  migrarRegistrosExistentes,
-  migrarCampanhasDoClube,
-  migrarAtividadesDoClube,
-  testarMigracaoIds,
-  validarEstruturasPlanilhas,
-  corrigirEstruturasPlanilhas,
-  limparColunasExtras,
-  migracaoEmergenciaEstruturaCampanhas,
-  analisarConflitoColunaParceria,
-  corrigirEstruturaCampanhasCompleta,
-  analisarStatusCampanhas,
-  limparIdsAntigos_EntidadeParceira,
-  analisarEstruturasAtuais,
-  analisarEstruturaCunhaPora,
-  migrarEstruturaFormularioParaSistema,
-  testarMigracaoClubePiloto,
-  testarOrdenacaoCronologica,
-  criarBackupCompleto,
-  criarPastaBackupPrincipal,
-  criarSubpastaBackup,
-  fazerBackupCampanhas,
-  fazerBackupAtividades,
-  testarSistemaUnificado,
-  testarVisaoGerencial,
-  criarAcessoGerencial,
-  filtrarDadosPorRegiao,
-  analisarEstruturaReal,
-  getDadosGerenciais,
-  getClubes,
-  getAssociadosLEO,
-  getPreLeos,
-  getLeoLeao,
-  getAmigosConselheiros,
-  contarAmigosLeoSelecionados,
-  listarPessoasParaEventos,
-  listarPessoasRTMAParaEventos,
-  registrarInscricaoEventoComComprovante,
-  isFormularioConvidadosAtivo,
-  setFormularioConvidadosAtivo,
-  setFormularioConvidadosHabilitadoEvento,
-  obterInfoFormularioConvidado,
-  obterUrlFormularioConvidados,
-  getUrlScannerRefeicoes,
-  obterSheetCamisas,
-  normalizarNumeroCamisa,
-  listarCamisasEnumeradas,
-  salvarCamisaEnumerada,
-  enviarComprovanteCamisaParaDrive,
-  obterUrlFormularioCamisas,
-  registrarInscricaoConvidadoExterno,
-  registrarInscricoesEventoEmLoteInterno_,
-  registrarInscricoesEventoEmLote,
-  registrarInscricoesEventoEmLoteComForm,
-  gerarRelatorioInscritosEventoExcel,
-  excluirInscricoesEventoPorEnvio,
-  editarLoteEnvioInscricoes,
-  obterDetalhesEnvioEvento,
-  atualizarInscricoesEnvioLotes,
-  trocarInscricaoEvento,
-  atualizarCargaRefeicoesPassaporte,
-  atualizarCargaRefeicoesLotePassaporte,
-  consumirRefeicaoPassaporte,
-  validarSaldoRefeicaoPassaporte,
-  obterCacheValidacaoAlimentacao,
-  gerarAnexosPassaportes,
-  enviarEmailResumoInscricoesEvento,
-  criarRascunhoEmailPassaportesClube,
-  solicitarPermissaoGmail,
-  criarRascunhoEmailPassaportesClubeTeste,
-  consumirRefeicoesPassaporteLote,
-  credenciarInscricoesModalidadeLote,
-  validarCredenciamentoPlenaria,
-  credenciarPlenaria,
-  credenciarPlenariaLote,
-  listarCredenciadosPlenaria,
-  removerCredenciamentoPlenaria,
-  listarPastPresidentes,
-  atualizarPastPresidente,
-  salvarPastPresidente,
-  removerPastPresidente,
-  listarNomesPessoasClube,
-  obterCachePlenaria,
-  listarModalidades,
-  criarModalidade,
-  atualizarModalidade,
-  excluirModalidade,
-  listarModalidadesEvento,
-  obterAptoEModalidadesPassaporte,
-  listarCredenciadosModalidade,
-  removerCredenciamentoModalidade,
-  vincularModalidadeEvento,
-  removerModalidadeEvento,
-  listarBloqueiosModalidade,
-  criarBloqueioModalidade,
-  removerBloqueioModalidade,
-  validarCredenciamentoModalidade,
-  _normalizarNomeParaComparacao,
-  _unificarSeparadoresCargoExcel,
-  _obterMapaCargosNominataClubeAlMult,
-  _obterMapaCargoNominataClube,
-  _ehPreLeo,
-  _ehApenasLeoLeao,
-  _calcularIdadeEmData,
-  _idadeEmData,
-  obterCacheValidacaoCredenciamento,
-  obterAptoACompetirInscricao,
-  credenciarInscricaoModalidade,
-  listarTrocasInscricaoEvento,
-  listarTrocasPendentesPorClube,
-  processarTrocaInscricaoSolicitacao,
-  processarTransferenciaPessoaSolicitacao,
-  criarSolicitacaoTransferenciaPessoa,
-  listarTransferenciasPendentesPorClube,
-  adicionarComprovanteEnvio,
-  uploadFotoEvento,
-  excluirComprovanteEnvio,
-  excluirEnvioEvento,
-  migrarEnviosEventos,
-  gerarRelatorioInscritosEventoDados,
-  getEventoDataCorteCompetidores,
-  atualizarDataCorteCompetidoresEvento,
-  gerarRelatorioInscritosEventoConsolidadoDados,
-  getCampanhasDoClube,
-  criarAbaCampanhas,
-  getEixos,
-  listarEixosCampanha,
-  salvarEixoCampanha,
-  excluirEixoCampanha,
-  montarChaveIdempotencia,
-  lerResultadoIdempotente,
-  salvarResultadoIdempotente,
-  registrarCampanha,
-  getCampanhaPorId,
-  deletarCampanha,
-  editarCampanha,
-  excluirMidiaCampanha,
-  excluirMidiaAtividade,
-  obterDadosResumoClube,
-  getAtividadesDoClube,
-  buscarDadosParaRankingAtividades,
-  buscarDadosParaRankingCampanhas,
-  getAtividadesGabinete,
-  criarAbaAtividades,
-  registrarAtividade,
-  formatarHoras,
-  calcularDuracaoMinutos,
-  validarFormatoEmail,
-  sanitizarString,
-  converterDataParaISO,
-  adicionarComentarioCampanha,
-  adicionarComentarioAtividade,
-  obterComentarioCampanha,
-  obterComentarioAtividade,
-  validarDadosCampanha,
-  validarDadosAtividade,
-  logOperacao,
-  testarDriveCunhaPora,
-  testarAcessoDrive,
-  obterArquivosDrive,
-  testeComunicacao,
-  carregarArquivosDriveNovo,
-  obterPastaClubeId,
-  uploadArquivoDrive,
-  obterMimeTypePorExtensao,
-  obterUrlArquivo,
-  excluirArquivoDrive,
-  obterListaClubesComDrive,
-  testarDriveClube,
-  atualizarDriveIdClube,
-  configurarCunhaPora,
-  obterArquivosDriveReal,
-  obterArquivosDriveDebug,
-  obterArquivosDriveSimplificado,
-  obterArquivosDriveGabinete,
-  listarArquivosDriveCompartilhado,
-  obterProprietarioItem,
-  formatarTamanhoArquivo,
-  obterThumbnailItem,
-  obterCaminhoPastaItem,
-  criarPastaDriveCompartilhado,
-  uploadArquivoDriveCompartilhado,
-  excluirItemDriveCompartilhado,
-  renomearItemDriveCompartilhado,
-  obterLinkDownloadDriveCompartilhado,
-  buscarArquivosDriveCompartilhado,
-  determinarTipoArquivo,
-  obterInformacoesPastaCompartilhada,
-  formatarTamanho,
-  baixarArquivoDriveCompartilhado,
-  testarAcessoDriveCompartilhado,
-  identificarPlaceholders,
-  mapearDadosCampanha,
-  buscarTodasCampanhasDistrito,
-  transferirDados,
-  gerarRelatorioDMComOpcao,
-  executarGeracaoRelatorio,
-  configurarArquivoRelatorio,
-  gerarRankingGabinete,
-  leoObterUrlWebAppRecuperacaoSenha,
-  obterUrlBaseScript,
-  _cors,
-  getRtmaHtml,
-  buscarOpcoesFiltros,
-  buscarOpcoesFiltrosDistritoPessoas,
-  listarConteudoPasta,
-  obterCaminhoPasta,
-  obterProprietarioDrive,
-  obterThumbnailDrive,
-  criarPasta,
-  excluirItem,
-  renomearItem,
-  obterLinkDownload,
-  copiarArquivo,
-  buscarArquivos,
-  formatarTamanhoDrive,
-  gerarCertificadosCampanhas,
-  copiarSlide,
-  substituirPlaceholders,
-  formatarEixo,
-  extrairAnoLeonistico,
-  processarRelatoriosCampanhas,
-  adicionarCampanhaSelecionada,
-  removerCampanhaSelecionada,
-  verificarCampanhaSelecionada,
-  buscarCampanhasSelecionadas,
-  obterCampanhasFiltradas,
-  atualizarCampanhaFiltrada,
-  deletarCampanhaFiltrada,
-  buscarCampanhaPorId,
-  listarConfiguracoes,
-  salvarConfiguracao,
-  ativarConfiguracao,
-  excluirConfiguracao,
-  buscarConfiguracaoAtiva,
-  listarAcessos,
-  formatarDataFundacaoBR,
-  listarClubesSupabase,
-  obterMapaRegiaoClubes,
-  obterResumoDelegadosClubes,
-  obterEmailClubeSupabase,
-  atualizarEmailClubeSupabase,
-  atualizarClubeSupabase,
-  inserirClube,
-  excluirClube,
-  criarClubeComAcesso,
-  atualizarStatusAcesso,
-  obterDatasTrimestreParaDM,
-  formatarDataParaISO,
-  determinarTrimestreDaData,
-  verificarSeNoTrimestreVigente,
-  criarSolicitacaoAlteracao,
-  verificarEProcessarAlteracao,
-  processarSolicitacaoAprovada,
-  listarSolicitacoesAlteracao,
-  listarSolicitacoesAlteracaoPorClube,
-  aprovarSolicitacaoAlteracao,
-  rejeitarSolicitacaoAlteracao,
-  buscarSolicitacaoPorId,
-  obterTrimestreAtualWrapper,
-  obterDatasTrimestreParaDMWrapper,
-  obterTodosClubesRTMA,
-  calcularResumoDMComFiltrosDashboardWrapper,
-  criarPessoaComVerificacao,
-  editarPessoaComVerificacao,
-  desligarPessoaComVerificacao,
-  buscarPessoaPorIdRTMA,
-  listarEventosCalendario,
-};

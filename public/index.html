@@ -19376,6 +19376,10 @@ function atualizarEstatisticasGerenciaisFiltradas() {
               <label>Representação <small style="font-weight:normal;color:#6c757d;">(se não for clube do D8)</small></label>
               <input type="text" id="troca-externa-representacao" placeholder="Ex: Empresa Y, Individual">
             </div>
+            <div class="form-group">
+              <label>Restrição alimentar <small style="font-weight:normal;color:#6c757d;">(opcional)</small></label>
+              <input type="text" id="troca-externa-restricao" placeholder="Ex: vegetariano, sem glúten">
+            </div>
           </div>
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
             <button class="btn-secondary" onclick="document.getElementById('modal-trocar-inscricao').remove()">Cancelar</button>
@@ -19486,7 +19490,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
     if (grupoClube) grupoClube.style.display = ativo ? 'none' : '';
     if (grupoPessoa) grupoPessoa.style.display = ativo ? 'none' : '';
     if (!ativo) {
-      ['troca-externa-nome','troca-externa-cargo','troca-externa-representacao'].forEach(id => {
+      ['troca-externa-nome','troca-externa-cargo','troca-externa-representacao','troca-externa-restricao'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
       });
@@ -19607,6 +19611,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
             pessoaRepresentaClube: representaClubeExt,
             pessoaClubeD8: clubeD8Ext,
             pessoaRepresentacao: representacaoExt,
+            pessoaRestricaoAlimentar: (document.getElementById('troca-externa-restricao')?.value || '').trim(),
             usuarioEmail: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : ''
           });
       });

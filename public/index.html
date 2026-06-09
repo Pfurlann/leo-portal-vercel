@@ -2700,10 +2700,10 @@
       font-weight: bold;
     }
 
-    .modal-content {
+    .modal-overlay .modal-content {
       background: var(--color-white);
       border-radius: var(--radius-2xl);
-      max-width: 1100px;
+      max-width: min(1500px, 96vw);
       width: 100%;
       max-height: 90vh;
       display: flex;
@@ -3065,6 +3065,10 @@
     }
 
     .modal-image-container img {
+      max-width: 100%;
+      max-height: 70vh;
+      width: auto;
+      height: auto;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       transition: transform 0.3s ease;
@@ -4093,7 +4097,7 @@
       }
 
       /* Modais */
-      .modal-content {
+      .modal-overlay .modal-content {
         width: 94%;
         max-height: 92vh;
       }
@@ -4411,7 +4415,7 @@
         border: 1px solid #e9ecef;
       }
 
-      .modal-content {
+      .modal-overlay .modal-content {
         width: 97%;
         max-height: 94vh;
       }
@@ -4421,7 +4425,7 @@
         max-height: 88vh;
       }
 
-      .modal-body {
+      .modal-overlay .modal-body {
         max-height: calc(94vh - 140px);
       }
     }
@@ -7932,6 +7936,118 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
      }
    }
 
+   function aplicarPermissoesPorTipoAcesso(tipoAcessoNormalizado, tipoAcessoRaw) {
+     const tipoAcesso = String(tipoAcessoNormalizado || '').toLowerCase();
+     isClube = tipoAcesso === 'clube';
+     isRegional = tipoAcesso === 'regional';
+     isCampanhas = tipoAcesso === 'campanhas';
+     isCampanhasDM = tipoAcesso === 'campanhasdm';
+     isSecretaria = tipoAcesso === 'secretaria';
+     isDistrital = tipoAcesso === 'distrital';
+     isEventos = tipoAcesso === 'eventos' || tipoAcesso === 'evento';
+     isAdmin = tipoAcesso === 'presidente' || tipoAcesso === 'admin';
+     isGerencial = isDistrital || isSecretaria || isCampanhas || isCampanhasDM || isRegional || isEventos;
+   }
+
+   function montarUsuarioLogadoPortal(authUser, usuarioData) {
+     const tipoAcessoRaw = String(usuarioData.tipo_acesso || '').toLowerCase().trim();
+     const tipoAcessoMap = {
+       distrito: 'distrital',
+       regiao: 'regional',
+       evento: 'eventos',
+       clube: 'clube'
+     };
+     const tipoAcessoNormalizado = tipoAcessoMap[tipoAcessoRaw] || tipoAcessoRaw;
+     const regiaoNormalizada = (tipoAcessoRaw === 'distrito' || tipoAcessoRaw === 'regiao') ? 'Total' : '';
+
+     return {
+       usuarioLogado: {
+         id: authUser.id,
+         email: authUser.email,
+         clube: usuarioData.clube_nome || '',
+         clubeId: usuarioData.clube_id || null,
+         regiao: regiaoNormalizada,
+         tipoAcesso: tipoAcessoNormalizado,
+         driveId: '',
+         isDistrito: tipoAcessoRaw === 'distrito',
+         isRegiao: tipoAcessoRaw === 'regiao'
+       },
+       tipoAcessoNormalizado: tipoAcessoNormalizado
+     };
+   }
+
+   function configurarSessaoPortal(authUser, usuarioData) {
+     const montado = montarUsuarioLogadoPortal(authUser, usuarioData);
+     usuarioLogado = montado.usuarioLogado;
+     aplicarPermissoesPorTipoAcesso(montado.tipoAcessoNormalizado, String(usuarioData.tipo_acesso || '').toLowerCase().trim());
+
+     console.log('=== DADOS DO USUÁRIO LOGADO ===');
+     console.log('Clube:', usuarioLogado.clube);
+     console.log('Email:', usuarioLogado.email);
+     console.log('Região:', usuarioLogado.regiao);
+     console.log('Tipo de Acesso:', usuarioLogado.tipoAcesso);
+     console.log('Drive ID:', usuarioLogado.driveId);
+     console.log('=== FIM DADOS DO USUÁRIO ===');
+     console.log('Modo gerencial:', isGerencial);
+     console.log('Modo secretaria:', isSecretaria);
+     console.log('Modo campanhas:', isCampanhas);
+
+     inicializarSistema();
+     return true;
+   }
+
+   function leoUrlTemFluxoRecuperacaoSenha() {
+     const h = window.location.hash || '';
+     return h.length > 5 && (h.indexOf('access_token') >= 0 || h.indexOf('type=recovery') >= 0);
+   }
+
+   async function verificarSessaoPortal() {
+     try {
+       if (leoUrlTemFluxoRecuperacaoSenha()) {
+         return;
+       }
+       if (usuarioLogado && usuarioLogado.email) {
+         return;
+       }
+
+       if (!supabasePortal) {
+         supabasePortal = inicializarSupabasePortal();
+       }
+       if (!supabasePortal) {
+         return;
+       }
+
+       const { data: { session }, error } = await supabasePortal.auth.getSession();
+       if (error) {
+         console.error('Erro ao verificar sessão:', error);
+         return;
+       }
+
+       if (!session || !session.user) {
+         console.log('ℹ️ Nenhuma sessão ativa no portal');
+         return;
+       }
+
+       const { data: usuarioData, error: usuarioError } = await buscarDadosUsuarioPortal(session.user.id, session.user.email);
+       if (usuarioError || !usuarioData) {
+         console.warn('Sessão sem usuário válido em usuarios_acessos — encerrando sessão');
+         await supabasePortal.auth.signOut();
+         return;
+       }
+
+       if (usuarioData.ativo === false || usuarioData.ativo === null) {
+         console.warn('Sessão com acesso inativo — encerrando sessão');
+         await supabasePortal.auth.signOut();
+         return;
+       }
+
+       console.log('✅ Sessão Supabase restaurada após recarregar a página');
+       configurarSessaoPortal(session.user, usuarioData);
+     } catch (error) {
+       console.error('Erro ao restaurar sessão do portal:', error);
+     }
+   }
+
    // === SISTEMA DE LOGIN UNIFICADO COM SUPABASE AUTH ===
    window.fazerLogin = async function() {
      const email = document.getElementById("emailLogin").value.trim();
@@ -8045,58 +8161,11 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
          return;
        }
        
-       // Montar objeto usuarioLogado
-       const tipoAcessoRaw = String(usuarioData.tipo_acesso || '').toLowerCase().trim();
-       const tipoAcessoMap = {
-         distrito: 'distrital',
-         regiao: 'regional',
-         evento: 'eventos',
-         clube: 'clube'
-       };
-       const tipoAcessoNormalizado = tipoAcessoMap[tipoAcessoRaw] || tipoAcessoRaw;
-       const regiaoNormalizada = (tipoAcessoRaw === 'distrito' || tipoAcessoRaw === 'regiao') ? 'Total' : '';
-       
-       usuarioLogado = {
-         id: authData.user.id,
-         email: authData.user.email,
-         clube: usuarioData.clube_nome || '',
-         clubeId: usuarioData.clube_id || null,
-         regiao: regiaoNormalizada,
-         tipoAcesso: tipoAcessoNormalizado,
-         driveId: '',
-         isDistrito: tipoAcessoRaw === 'distrito',
-         isRegiao: tipoAcessoRaw === 'regiao'
-       };
-       
-       // Verificar tipo de acesso gerencial
-       const tipoAcesso = tipoAcessoNormalizado.toLowerCase();
-       
-       isClube = tipoAcesso === 'clube';
-       isRegional = tipoAcesso === 'regional';
-       isCampanhas = tipoAcesso === 'campanhas';
-       isCampanhasDM = tipoAcesso === 'campanhasdm';
-       isSecretaria = tipoAcesso === 'secretaria';
-       isDistrital = tipoAcesso === 'distrital';
-       isEventos = tipoAcesso === 'eventos' || tipoAcesso === 'evento';
-       isAdmin = tipoAcesso === 'presidente' || tipoAcesso === 'admin';
-       isGerencial = isDistrital || isSecretaria || isCampanhas || isCampanhasDM || isRegional || isEventos;
-       
-       console.log('=== DADOS DO USUÁRIO LOGADO ===');
-       console.log('Clube:', usuarioLogado.clube);
-       console.log('Email:', usuarioLogado.email);
-       console.log('Região:', usuarioLogado.regiao);
-       console.log('Tipo de Acesso:', usuarioLogado.tipoAcesso);
-       console.log('Drive ID:', usuarioLogado.driveId);
-       console.log('=== FIM DADOS DO USUÁRIO ===');
-       console.log('Modo gerencial:', isGerencial);
-       console.log('Modo secretaria:', isSecretaria);
-       console.log('Modo campanhas:', isCampanhas);
-       
+       // Montar sessão e entrar no sistema
+       configurarSessaoPortal(authData.user, usuarioData);
+
        loginBtn.innerHTML = originalText;
        loginBtn.disabled = false;
-       
-       // Inicializar o sistema
-       inicializarSistema();
        
      } catch (error) {
        console.error('❌ Erro inesperado no login:', error);
@@ -10795,6 +10864,12 @@ function inicializarSistema() {
          </div>
        </div>
 
+      <div class="dashboard-actions" style="margin-bottom: 16px;">
+        <button class="new-item-btn" onclick="extrairRelatorioTempoAtividadesPorClube()" id="btn-relatorio-tempo-atividades-clube" style="background: #198754; color: #fff;">
+          <i class="fas fa-file-excel"></i> Relatório Tempo em Atividades por Clube
+        </button>
+      </div>
+
       <!-- GRÁFICOS (Gerencial) -->
       <div id="gerencial-charts" style="margin-top: 25px;">
         <div id="gerencial-charts-campanhas" class="charts-section" style="display: none;">
@@ -13381,6 +13456,434 @@ function limparFiltrosPeriodoGerencial() {
   aplicarFiltrosGerencial();
 }
 
+  function obterHorasCampanhaParaRelatorio(campanha) {
+    if (!campanha || !campanha.dataInicio || !campanha.dataFim) return 0;
+
+    const inicio = new Date(campanha.dataInicio);
+    const fim = new Date(campanha.dataFim);
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime()) || fim <= inicio) return 0;
+
+    const diffHoras = (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60);
+    if (diffHoras <= 0 || diffHoras > 720) return 0;
+
+    return diffHoras;
+  }
+
+  function obterCampanhasParaRelatorioTempo() {
+    if (typeof campanhasDashboardFiltered !== 'undefined' && campanhasDashboardFiltered.length) {
+      return campanhasDashboardFiltered;
+    }
+    if (typeof campanhasDashboardList !== 'undefined' && campanhasDashboardList.length) {
+      return campanhasDashboardList;
+    }
+    if ((isCampanhas || isCampanhasDM) && typeof campanhasGerenciaisFiltered !== 'undefined' && campanhasGerenciaisFiltered.length) {
+      return campanhasGerenciaisFiltered;
+    }
+    if (typeof campanhasFiltered !== 'undefined' && campanhasFiltered.length) {
+      return campanhasFiltered;
+    }
+    if (typeof campanhasGerenciaisFiltered !== 'undefined' && campanhasGerenciaisFiltered.length) {
+      return campanhasGerenciaisFiltered;
+    }
+    if (typeof campanhasList !== 'undefined' && campanhasList.length) {
+      return campanhasList;
+    }
+    return campanhasGerenciais || [];
+  }
+
+  function obterDescricaoFiltrosRelatorioTempoCampanhas() {
+    const partes = [];
+
+    const dashClube = document.getElementById('dash-filtroClube');
+    const dashAl = document.getElementById('dash-filtroAL');
+    const dashTrim = document.getElementById('dash-filtroTrimestre');
+    const dashEixo = document.getElementById('dash-filtroEixo');
+    const dashEixoDm = document.getElementById('dash-filtroEixoDM');
+    const dashRegiao = document.getElementById('dash-filtroRegiao');
+    const dashStatus = document.getElementById('dash-filtroCorrigido');
+
+    if (dashClube && dashClube.value) partes.push('Clube: ' + dashClube.value);
+    if (dashAl && dashAl.value) partes.push('AL: ' + dashAl.value);
+    if (dashTrim && dashTrim.value) partes.push('Trimestre: ' + dashTrim.value);
+    if (dashEixo && dashEixo.value) partes.push('Eixo: ' + dashEixo.value);
+    if (dashEixoDm && dashEixoDm.value) partes.push('Eixo DM: ' + dashEixoDm.value);
+    if (dashRegiao && dashRegiao.value) partes.push('Região: ' + dashRegiao.value);
+    if (dashStatus && dashStatus.value) {
+      partes.push('Status: ' + (dashStatus.value === 'corrigido' ? 'Corrigidas' : 'Não corrigidas'));
+    }
+
+    if (partes.length) {
+      return partes.join(' | ');
+    }
+
+    const clubeLista = document.getElementById('filtroClubeCampanhasLista');
+    const clubeEsp = document.getElementById('filtroClubeCampanhas');
+    const alModulo = document.getElementById('filtroALCampanhas');
+    const trimLista = document.getElementById('filtroTrimestreCampanhas');
+    const trimEsp = document.getElementById('filtroTrimestreCampanhasGerencial');
+    const eixoModulo = document.getElementById('filtroEixoCampanhas');
+    const eixoDmLista = document.getElementById('filtroEixoDMCampanhas');
+    const eixoDmEsp = document.getElementById('filtroEixoDMCampanhasGerencial');
+    const statusLista = document.getElementById('filtroCorrigidoCampanhas');
+    const statusEsp = document.getElementById('filtroStatusCampanhas');
+
+    const clubeVal = (clubeLista && clubeLista.value) || (clubeEsp && clubeEsp.value) || '';
+    const trimVal = (trimLista && trimLista.value) || (trimEsp && trimEsp.value) || '';
+    const eixoDmVal = (eixoDmLista && eixoDmLista.value) || (eixoDmEsp && eixoDmEsp.value) || '';
+    const statusVal = (statusLista && statusLista.value) || (statusEsp && statusEsp.value) || '';
+
+    if (clubeVal) partes.push('Clube: ' + clubeVal);
+    if (alModulo && alModulo.value) partes.push('AL: ' + alModulo.value);
+    if (trimVal) partes.push('Trimestre: ' + trimVal);
+    if (eixoModulo && eixoModulo.value) partes.push('Eixo: ' + eixoModulo.value);
+    if (eixoDmVal) partes.push('Eixo DM: ' + eixoDmVal);
+    if (statusVal) {
+      partes.push('Status: ' + (statusVal === 'corrigido' ? 'Corrigidas' : 'Não corrigidas'));
+    }
+
+    if (!partes.length) {
+      const clubeGer = document.getElementById('filtroClube');
+      const alGer = document.getElementById('filtroALGerencial');
+      const trimGer = document.getElementById('filtroTrimestreGerencial');
+      const tipoGer = document.getElementById('filtroTipoGerencial');
+      const statusGer = document.getElementById('filtroCorrigidoGerencial');
+      if (clubeGer && clubeGer.value) partes.push('Clube: ' + clubeGer.value);
+      if (alGer && alGer.value) partes.push('AL: ' + alGer.value);
+      if (trimGer && trimGer.value) partes.push('Trimestre: ' + trimGer.value);
+      if (tipoGer && tipoGer.value) partes.push('Tipo/Eixo: ' + tipoGer.value);
+      if (statusGer && statusGer.value) {
+        partes.push('Status: ' + (statusGer.value === 'corrigido' ? 'Corrigidas' : 'Não corrigidas'));
+      }
+    }
+
+    return partes.length ? partes.join(' | ') : 'Sem filtros adicionais (todas as campanhas visíveis)';
+  }
+
+  function agruparTempoCampanhasPorClube(campanhas) {
+    const mapa = {};
+    (campanhas || []).forEach(function(campanha) {
+      const clube = (campanha && campanha.clube) ? String(campanha.clube).trim() : 'Sem clube';
+      if (!mapa[clube]) {
+        mapa[clube] = { clube: clube, quantidade: 0, horas: 0, campanhas: [] };
+      }
+      const horas = obterHorasCampanhaParaRelatorio(campanha);
+      mapa[clube].quantidade += 1;
+      mapa[clube].horas += horas;
+      mapa[clube].campanhas.push({
+        titulo: campanha.titulo || 'Sem título',
+        al: campanha.al || '',
+        trimestre: campanha.trimestre || '',
+        dataInicio: campanha.dataInicio,
+        dataFim: campanha.dataFim,
+        horas: horas
+      });
+    });
+
+    return Object.values(mapa).sort(function(a, b) {
+      return a.clube.localeCompare(b.clube, 'pt-BR');
+    });
+  }
+
+  function extrairRelatorioTempoCampanhasPorClube() {
+    const campanhas = obterCampanhasParaRelatorioTempo();
+
+    if (!campanhas.length) {
+      mostrarModal('Não há campanhas para gerar o relatório. Ajuste os filtros ou aguarde o carregamento dos dados.', 'aviso', 'Sem dados');
+      return;
+    }
+
+    setBotaoLoading('btn-relatorio-tempo-campanhas-clube', true, 'Gerando...');
+
+    garantirXlsxCarregado().then(function() {
+      if (!window.XLSX || !XLSX.utils) {
+        setBotaoLoading('btn-relatorio-tempo-campanhas-clube', false);
+        mostrarModal('Biblioteca de Excel não carregada. Tente novamente.', 'erro', 'Erro');
+        return;
+      }
+
+      const grupos = agruparTempoCampanhasPorClube(campanhas);
+      let totalCampanhas = 0;
+      let totalHoras = 0;
+      grupos.forEach(function(g) {
+        totalCampanhas += g.quantidade;
+        totalHoras += g.horas;
+      });
+
+      const wb = XLSX.utils.book_new();
+      const resumo = [];
+      resumo.push(['Relatório — Duração total de campanhas por clube']);
+      resumo.push(['Distrito LEO LD-8 — Dashboard de Campanhas']);
+      resumo.push(['Métrica: duração de cada campanha (data/hora fim − início), não horas totais trabalhadas']);
+      resumo.push(['Gerado em: ' + formatarDataHoraBrasilia(new Date())]);
+      resumo.push(['Filtros: ' + obterDescricaoFiltrosRelatorioTempoCampanhas()]);
+      resumo.push([]);
+      resumo.push(['Clube', 'Nº de campanhas', 'Duração (h decimal)', 'Duração total']);
+
+      grupos.forEach(function(g) {
+        resumo.push([
+          g.clube,
+          g.quantidade,
+          parseFloat(g.horas.toFixed(2)),
+          formatarHorasLegivel(g.horas)
+        ]);
+      });
+
+      resumo.push([]);
+      resumo.push([
+        'TOTAL GERAL',
+        totalCampanhas,
+        parseFloat(totalHoras.toFixed(2)),
+        formatarHorasLegivel(totalHoras)
+      ]);
+
+      const wsResumo = XLSX.utils.aoa_to_sheet(resumo);
+      wsResumo['!cols'] = [{ wch: 42 }, { wch: 16 }, { wch: 14 }, { wch: 18 }];
+      XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo por Clube');
+
+      const detalhe = [];
+      detalhe.push(['Clube', 'Campanha', 'AL', 'Trimestre', 'Data/Hora início', 'Data/Hora fim', 'Duração (h decimal)', 'Duração']);
+      grupos.forEach(function(g) {
+        g.campanhas.forEach(function(c) {
+          detalhe.push([
+            g.clube,
+            c.titulo,
+            c.al,
+            c.trimestre,
+            c.dataInicio ? formatarDataHoraBrasilia(c.dataInicio) : '',
+            c.dataFim ? formatarDataHoraBrasilia(c.dataFim) : '',
+            parseFloat(c.horas.toFixed(2)),
+            formatarHorasLegivel(c.horas)
+          ]);
+        });
+      });
+
+      const wsDetalhe = XLSX.utils.aoa_to_sheet(detalhe);
+      wsDetalhe['!cols'] = [{ wch: 32 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Detalhamento');
+
+      const dataArquivo = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, 'relatorio-tempo-campanhas-por-clube-' + dataArquivo + '.xlsx');
+
+      setBotaoLoading('btn-relatorio-tempo-campanhas-clube', false);
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao(
+          'Relatório gerado: ' + grupos.length + ' clube(s), ' + totalCampanhas + ' campanha(s), duração total ' + formatarHorasLegivel(totalHoras) + '.',
+          'success'
+        );
+      }
+    }).catch(function(err) {
+      setBotaoLoading('btn-relatorio-tempo-campanhas-clube', false);
+      console.error('[Relatório campanhas]', err);
+      mostrarModal('Erro ao gerar o relatório: ' + ((err && err.message) ? err.message : String(err)), 'erro', 'Erro');
+    });
+  }
+
+  function obterHorasAtividadeParaRelatorio(atividade) {
+    if (!atividade || !atividade.dataInicio || !atividade.dataFim) return 0;
+
+    const inicio = new Date(atividade.dataInicio);
+    const fim = new Date(atividade.dataFim);
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime()) || fim <= inicio) return 0;
+
+    const diffHoras = (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60);
+    if (diffHoras <= 0 || diffHoras > 720) return 0;
+
+    return diffHoras;
+  }
+
+  function obterAtividadesParaRelatorioTempo() {
+    if (typeof atividadesGerenciaisFiltered !== 'undefined' && atividadesGerenciaisFiltered.length) {
+      return atividadesGerenciaisFiltered;
+    }
+    if (typeof atividadesFiltered !== 'undefined' && atividadesFiltered.length) {
+      return atividadesFiltered;
+    }
+    if (typeof atividadesList !== 'undefined' && atividadesList.length) {
+      return atividadesList;
+    }
+    if (typeof atividadesGerenciais !== 'undefined' && atividadesGerenciais.length) {
+      return atividadesGerenciais;
+    }
+    return [];
+  }
+
+  function obterDescricaoFiltrosRelatorioTempoAtividades() {
+    const partes = [];
+
+    const alSec = document.getElementById('filtroALSecretaria');
+    const trimSec = document.getElementById('filtroTrimestreSecretaria');
+    const tipoSec = document.getElementById('filtroTipoAtividadeSecretaria');
+    const clubeSec = document.getElementById('filtroClubeSecretaria');
+    const statusSec = document.getElementById('filtroStatusSecretaria');
+
+    if (alSec || trimSec || tipoSec || clubeSec || statusSec) {
+      if (alSec && alSec.value) partes.push('AL: ' + alSec.value);
+      if (trimSec && trimSec.value) partes.push('Trimestre: ' + trimSec.value);
+      if (tipoSec && tipoSec.value) partes.push('Tipo: ' + tipoSec.value);
+      if (clubeSec && clubeSec.value) partes.push('Clube: ' + clubeSec.value);
+      if (statusSec && statusSec.value) {
+        partes.push('Status: ' + (statusSec.value === 'corrigido' ? 'Corrigidas' : 'Não corrigidas'));
+      }
+      if (partes.length) return partes.join(' | ');
+    }
+
+    const clubeGer = document.getElementById('filtroClube');
+    const alGer = document.getElementById('filtroALGerencial');
+    const trimGer = document.getElementById('filtroTrimestreGerencial');
+    const tipoGer = document.getElementById('filtroTipoGerencial');
+    const statusGer = document.getElementById('filtroCorrigidoGerencial');
+    const periodoInicioGer = document.getElementById('filtroPeriodoInicioGerencial');
+    const periodoFimGer = document.getElementById('filtroPeriodoFimGerencial');
+
+    if (clubeGer && clubeGer.value) partes.push('Clube: ' + clubeGer.value);
+    if (alGer && alGer.value) partes.push('AL: ' + alGer.value);
+    if (trimGer && trimGer.value) partes.push('Trimestre: ' + trimGer.value);
+    if (tipoGer && tipoGer.value) partes.push('Tipo: ' + tipoGer.value);
+    if (statusGer && statusGer.value) {
+      partes.push('Status: ' + (statusGer.value === 'corrigido' ? 'Corrigidas' : 'Não corrigidas'));
+    }
+    if (periodoInicioGer && periodoInicioGer.value) partes.push('Período início: ' + periodoInicioGer.value);
+    if (periodoFimGer && periodoFimGer.value) partes.push('Período fim: ' + periodoFimGer.value);
+
+    const alLista = document.getElementById('filtroALAtividades');
+    const trimLista = document.getElementById('filtroTrimestreAtividades');
+    const tipoLista = document.getElementById('filtroTipoAtividades');
+    const clubeLista = document.getElementById('filtroClubeAtividades');
+
+    if (alLista && alLista.value) partes.push('AL: ' + alLista.value);
+    if (trimLista && trimLista.value) partes.push('Trimestre: ' + trimLista.value);
+    if (tipoLista && tipoLista.value) partes.push('Tipo: ' + tipoLista.value);
+    if (clubeLista && clubeLista.value) partes.push('Clube: ' + clubeLista.value);
+
+    return partes.length ? partes.join(' | ') : 'Sem filtros adicionais (todas as atividades visíveis)';
+  }
+
+  function agruparTempoAtividadesPorClube(atividades) {
+    const mapa = {};
+    (atividades || []).forEach(function(atividade) {
+      const clube = (atividade && atividade.clube) ? String(atividade.clube).trim() : 'Sem clube';
+      if (!mapa[clube]) {
+        mapa[clube] = { clube: clube, quantidade: 0, horas: 0, atividades: [] };
+      }
+      const horas = obterHorasAtividadeParaRelatorio(atividade);
+      mapa[clube].quantidade += 1;
+      mapa[clube].horas += horas;
+      mapa[clube].atividades.push({
+        titulo: atividade.titulo || 'Sem título',
+        al: atividade.al || '',
+        trimestre: atividade.trimestre || '',
+        tipoAtividade: atividade.tipoAtividade || '',
+        dataInicio: atividade.dataInicio,
+        dataFim: atividade.dataFim,
+        horas: horas
+      });
+    });
+
+    return Object.values(mapa).sort(function(a, b) {
+      return a.clube.localeCompare(b.clube, 'pt-BR');
+    });
+  }
+
+  function setBotaoLoadingRelatorioAtividades(loading, texto) {
+    setBotaoLoading('btn-relatorio-tempo-atividades-clube', loading, texto);
+    setBotaoLoading('btn-relatorio-tempo-atividades-clube-secretaria', loading, texto);
+  }
+
+  function extrairRelatorioTempoAtividadesPorClube() {
+    const atividades = obterAtividadesParaRelatorioTempo();
+
+    if (!atividades.length) {
+      mostrarModal('Não há atividades para gerar o relatório. Ajuste os filtros ou aguarde o carregamento dos dados.', 'aviso', 'Sem dados');
+      return;
+    }
+
+    setBotaoLoadingRelatorioAtividades(true, 'Gerando...');
+
+    garantirXlsxCarregado().then(function() {
+      if (!window.XLSX || !XLSX.utils) {
+        setBotaoLoadingRelatorioAtividades(false);
+        mostrarModal('Biblioteca de Excel não carregada. Tente novamente.', 'erro', 'Erro');
+        return;
+      }
+
+      const grupos = agruparTempoAtividadesPorClube(atividades);
+      let totalAtividades = 0;
+      let totalHoras = 0;
+      grupos.forEach(function(g) {
+        totalAtividades += g.quantidade;
+        totalHoras += g.horas;
+      });
+
+      const wb = XLSX.utils.book_new();
+      const resumo = [];
+      resumo.push(['Relatório — Duração total de atividades por clube']);
+      resumo.push(['Distrito LEO LD-8 — Dashboard de Atividades']);
+      resumo.push(['Métrica: duração de cada atividade (data/hora fim − início), não horas totais trabalhadas']);
+      resumo.push(['Gerado em: ' + formatarDataHoraBrasilia(new Date())]);
+      resumo.push(['Filtros: ' + obterDescricaoFiltrosRelatorioTempoAtividades()]);
+      resumo.push([]);
+      resumo.push(['Clube', 'Nº de atividades', 'Duração (h decimal)', 'Duração total']);
+
+      grupos.forEach(function(g) {
+        resumo.push([
+          g.clube,
+          g.quantidade,
+          parseFloat(g.horas.toFixed(2)),
+          formatarHorasLegivel(g.horas)
+        ]);
+      });
+
+      resumo.push([]);
+      resumo.push([
+        'TOTAL GERAL',
+        totalAtividades,
+        parseFloat(totalHoras.toFixed(2)),
+        formatarHorasLegivel(totalHoras)
+      ]);
+
+      const wsResumo = XLSX.utils.aoa_to_sheet(resumo);
+      wsResumo['!cols'] = [{ wch: 42 }, { wch: 16 }, { wch: 14 }, { wch: 18 }];
+      XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo por Clube');
+
+      const detalhe = [];
+      detalhe.push(['Clube', 'Atividade', 'AL', 'Trimestre', 'Tipo', 'Data/Hora início', 'Data/Hora fim', 'Duração (h decimal)', 'Duração']);
+      grupos.forEach(function(g) {
+        g.atividades.forEach(function(a) {
+          detalhe.push([
+            g.clube,
+            a.titulo,
+            a.al,
+            a.trimestre,
+            a.tipoAtividade,
+            a.dataInicio ? formatarDataHoraBrasilia(a.dataInicio) : '',
+            a.dataFim ? formatarDataHoraBrasilia(a.dataFim) : '',
+            parseFloat(a.horas.toFixed(2)),
+            formatarHorasLegivel(a.horas)
+          ]);
+        });
+      });
+
+      const wsDetalhe = XLSX.utils.aoa_to_sheet(detalhe);
+      wsDetalhe['!cols'] = [{ wch: 32 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsDetalhe, 'Detalhamento');
+
+      const dataArquivo = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, 'relatorio-tempo-atividades-por-clube-' + dataArquivo + '.xlsx');
+
+      setBotaoLoadingRelatorioAtividades(false);
+      if (typeof mostrarNotificacao === 'function') {
+        mostrarNotificacao(
+          'Relatório gerado: ' + grupos.length + ' clube(s), ' + totalAtividades + ' atividade(s), duração total ' + formatarHorasLegivel(totalHoras) + '.',
+          'success'
+        );
+      }
+    }).catch(function(err) {
+      setBotaoLoadingRelatorioAtividades(false);
+      console.error('[Relatório atividades]', err);
+      mostrarModal('Erro ao gerar o relatório: ' + ((err && err.message) ? err.message : String(err)), 'erro', 'Erro');
+    });
+  }
+
 function atualizarEstatisticasGerenciaisFiltradas() {
   // === TOTAL DE CAMPANHAS (FILTRADAS) ===
   const totalCampanhas = campanhasGerenciaisFiltered.length;
@@ -13395,11 +13898,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
   // === TOTAL DE HORAS EM CAMPANHAS (FILTRADAS) ===
   let totalHorasCampanhas = 0;
   campanhasGerenciaisFiltered.forEach(campanha => {
-    let horas = parseFloat(campanha.horasTrabalhadas) || 0;
-    if (horas > 10000) {
-      horas = 0; // Filtrar valores anômalos
-    }
-    totalHorasCampanhas += horas;
+    totalHorasCampanhas += obterHorasCampanhaParaRelatorio(campanha);
   });
   
   const horasCampanhasFormatadas = formatarHorasLegivel(totalHorasCampanhas);
@@ -13504,11 +14003,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
   // === TOTAL DE HORAS EM CAMPANHAS ===
   let totalHorasCampanhas = 0;
   campanhasGerenciais.forEach(campanha => {
-    let horas = parseFloat(campanha.horasTrabalhadas) || 0;
-    if (horas > 10000) {
-      horas = 0; // Filtrar valores anômalos
-    }
-    totalHorasCampanhas += horas;
+    totalHorasCampanhas += obterHorasCampanhaParaRelatorio(campanha);
   });
   
   const horasCampanhasFormatadas = formatarHorasLegivel(totalHorasCampanhas);
@@ -21028,6 +21523,12 @@ function atualizarEstatisticasGerenciaisFiltradas() {
            </div>
          </div>
 
+       </div>
+
+       <div class="dashboard-actions" style="margin-bottom: 16px;">
+         <button class="new-item-btn" onclick="extrairRelatorioTempoAtividadesPorClube()" id="btn-relatorio-tempo-atividades-clube-secretaria" style="background: #198754; color: #fff;">
+           <i class="fas fa-file-excel"></i> Relatório Tempo em Atividades por Clube
+         </button>
        </div>
 
        <!-- GRÁFICOS -->
@@ -32953,7 +33454,7 @@ ${erro.message || erro}`);
                         <img id="modal-campanha-img-${index}" 
                              src="${escapeHtmlAttr(midia.url)}"
                              alt="${escapeHtmlAttr(midia.nome)}" 
-                             style="width: 100%; max-width: 600px; height: auto; object-fit: contain; cursor: pointer; display: block;"
+                             style="width: 100%; max-width: 1400px; height: auto; object-fit: contain; cursor: pointer; display: block;"
                              data-url="${escapeHtmlAttr(midia.url)}" onclick="abrirImagemFullscreen(this.dataset.url)">
                       </div>
                     </div>
@@ -32978,7 +33479,7 @@ ${erro.message || erro}`);
                       <div style="max-width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
                         <iframe id="modal-campanha-video-${index}" 
                                 src="${escapeHtmlAttr(String(midia.url).replace('/view?usp=drivesdk', '/preview'))}"
-                                style="width: 100%; max-width: 600px; height: 400px; border: none; display: block;"
+                                style="width: 100%; max-width: 1400px; height: 480px; border: none; display: block;"
                                 allowfullscreen>
                         </iframe>
                       </div>
@@ -33437,7 +33938,7 @@ ${erro.message || erro}`);
                  <img id="modal-atividade-img"
                       src="${atividade.linkFotoOficial}"
                       alt="Foto Oficial"
-                      style="width: 100%; max-height: 400px; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
+                      style="width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
                       data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
                       onerror='this.style.display="none"; this.parentElement.innerHTML="<div style=&apos;padding: 20px; color: #999; text-align: center;&apos;>Erro ao carregar imagem</div>"'>
                </div>
@@ -36147,6 +36648,12 @@ function fecharFullscreen() {
             </select>
           </div>
         </div>
+      </div>
+
+      <div class="dashboard-actions" style="margin-bottom: 16px;">
+        <button class="new-item-btn" onclick="extrairRelatorioTempoCampanhasPorClube()" id="btn-relatorio-tempo-campanhas-clube" style="background: #0d6efd; color: #fff;">
+          <i class="fas fa-file-excel"></i> Relatório Tempo em Campanhas por Clube
+        </button>
       </div>
 
       <div class="charts-section" style="margin-top: 20px;">
@@ -39034,6 +39541,8 @@ function fecharFullscreen() {
      if (typeof leoTentarExibirRedefinirSeHashDeRecuperacao === 'function') {
        leoTentarExibirRedefinirSeHashDeRecuperacao();
      }
+
+     verificarSessaoPortal();
      
      // Validação de data
      document.addEventListener('change', function(e) {
@@ -39273,7 +39782,7 @@ function fecharFullscreen() {
       justify-content: center;
     }
 
-    .modal-content {
+    .modal .modal-content {
       background: white;
       border-radius: 12px;
       max-width: 500px;
@@ -39282,7 +39791,7 @@ function fecharFullscreen() {
       overflow-y: auto;
     }
 
-    .modal-header {
+    .modal .modal-header {
       padding: 20px;
       border-bottom: 1px solid #e9ecef;
       display: flex;
@@ -39290,12 +39799,12 @@ function fecharFullscreen() {
       align-items: center;
     }
 
-    .modal-header h3 {
+    .modal .modal-header h3 {
       margin: 0;
       color: #002060;
     }
 
-    .modal-close {
+    .modal .modal-close {
       background: none;
       border: none;
       font-size: 24px;
@@ -39303,7 +39812,7 @@ function fecharFullscreen() {
       color: #666;
     }
 
-    .modal-body {
+    .modal .modal-body {
       padding: 20px;
     }
 

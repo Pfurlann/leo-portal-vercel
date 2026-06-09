@@ -19001,9 +19001,15 @@ function atualizarEstatisticasGerenciaisFiltradas() {
       const representaClubeExt = !!(document.getElementById('troca-externa-representa-clube')?.checked);
       const clubeD8Ext = representaClubeExt ? (document.getElementById('troca-externa-clube-d8')?.value || '').trim() : '';
       const representacaoExt = !representaClubeExt ? (document.getElementById('troca-externa-representacao')?.value || '').trim() : '';
+      if (representaClubeExt && !clubeD8Ext) {
+        eventosNotificar('Selecione o clube do D8.', 'error');
+        return;
+      }
       const clubeNomeExt = clubeD8Ext || representacaoExt || 'Externo';
 
-      const mensagemExt = `Confirma trocar esta inscrição para pessoa externa?\n\nDe: ${eventoTrocaInscricaoAtual.pessoaAtual || '-'}\nPara: ${nomeExt}${cargoExt ? ` (${cargoExt})` : ''}`;
+      const nomeExtSafe = escapeHtmlContent(nomeExt);
+      const cargoExtSafe = cargoExt ? escapeHtmlContent(cargoExt) : '';
+      const mensagemExt = `Confirma trocar esta inscrição para pessoa externa?\n\nDe: ${eventoTrocaInscricaoAtual.pessoaAtual || '-'}\nPara: ${nomeExtSafe}${cargoExtSafe ? ` (${cargoExtSafe})` : ''}`;
       const confirmar = (typeof confirmarModal === 'function')
         ? confirmarModal(mensagemExt, 'Confirmar troca', 'Confirmar', 'Cancelar', 'warning')
         : Promise.resolve(window.confirm(mensagemExt));

@@ -7561,6 +7561,7 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
     let eventoClubesInscricaoEmAndamento = false;
     let eventoTrocaInscricaoPessoasMap = {};
     let eventoTrocaInscricaoAtual = null;
+    let eventoTrocaClubesD8Lista = [];
 
     // Paginação para listas grandes (melhora tempo de render)
     const PAGE_SIZE_ATIVIDADES = 60;
@@ -19343,6 +19344,39 @@ function atualizarEstatisticasGerenciaisFiltradas() {
             </select>
             <small id="troca-inscricao-pessoa-tipo" style="color:#6c757d;"></small>
           </div>
+          <div style="border-top:1px solid #dee2e6; margin:14px 0 10px 0;"></div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal;">
+              <input type="checkbox" id="troca-pessoa-externa-flag" onchange="toggleTrocaPessoaExterna(this.checked)">
+              <span>Trocar com pessoa não cadastrada no RTMA</span>
+            </label>
+          </div>
+          <div id="troca-pessoa-externa-section" style="display:none;">
+            <div class="form-group">
+              <label>Nome <span style="color:#dc3545;">*</span></label>
+              <input type="text" id="troca-externa-nome" placeholder="Nome completo">
+            </div>
+            <div class="form-group">
+              <label>Cargo <small style="font-weight:normal;color:#6c757d;">(opcional)</small></label>
+              <input type="text" id="troca-externa-cargo" placeholder="Ex: Presidente, Assessor">
+            </div>
+            <div class="form-group">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal;">
+                <input type="checkbox" id="troca-externa-representa-clube" onchange="toggleTrocaExternaClube(this.checked)">
+                <span>Representa clube do D8?</span>
+              </label>
+              <div id="troca-externa-clube-section" style="display:none;margin-top:8px;margin-left:20px;">
+                <label>Clube do D8</label>
+                <select id="troca-externa-clube-d8">
+                  <option value="">Selecione o clube</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" id="troca-externa-representacao-group">
+              <label>Representação <small style="font-weight:normal;color:#6c757d;">(se não for clube do D8)</small></label>
+              <input type="text" id="troca-externa-representacao" placeholder="Ex: Empresa Y, Individual">
+            </div>
+          </div>
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
             <button class="btn-secondary" onclick="document.getElementById('modal-trocar-inscricao').remove()">Cancelar</button>
             <button class="btn-primary" onclick="confirmarTrocaInscricao()">Confirmar troca</button>
@@ -19371,6 +19405,8 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         opt.text = clube;
         select.appendChild(opt);
       });
+      eventoTrocaClubesD8Lista = clubesNormalizados;
+      preencherSelectClubeD8TrocaExterna(clubesNormalizados);
       if (clubeAtual) {
         select.value = clubeAtual;
       }
@@ -19442,6 +19478,50 @@ function atualizarEstatisticasGerenciaisFiltradas() {
     info.textContent = pessoa && pessoa.tipo ? `Tipo: ${pessoa.tipo}` : '';
   }
 
+  function toggleTrocaPessoaExterna(ativo) {
+    const section = document.getElementById('troca-pessoa-externa-section');
+    const grupoClube = document.getElementById('troca-inscricao-clube')?.closest('.form-group');
+    const grupoPessoa = document.getElementById('troca-inscricao-pessoa')?.closest('.form-group');
+    if (section) section.style.display = ativo ? '' : 'none';
+    if (grupoClube) grupoClube.style.display = ativo ? 'none' : '';
+    if (grupoPessoa) grupoPessoa.style.display = ativo ? 'none' : '';
+    if (!ativo) {
+      ['troca-externa-nome','troca-externa-cargo','troca-externa-representacao'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const repClube = document.getElementById('troca-externa-representa-clube');
+      if (repClube) repClube.checked = false;
+      const repSec = document.getElementById('troca-externa-clube-section');
+      if (repSec) repSec.style.display = 'none';
+      const repGroup = document.getElementById('troca-externa-representacao-group');
+      if (repGroup) repGroup.style.display = '';
+    }
+  }
+
+  function toggleTrocaExternaClube(ativo) {
+    const sec = document.getElementById('troca-externa-clube-section');
+    const repGroup = document.getElementById('troca-externa-representacao-group');
+    if (sec) sec.style.display = ativo ? '' : 'none';
+    if (repGroup) repGroup.style.display = ativo ? 'none' : '';
+    if (!ativo) {
+      const sel = document.getElementById('troca-externa-clube-d8');
+      if (sel) sel.value = '';
+    }
+  }
+
+  function preencherSelectClubeD8TrocaExterna(clubes) {
+    const sel = document.getElementById('troca-externa-clube-d8');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecione o clube</option>';
+    (clubes || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.text = c;
+      sel.appendChild(opt);
+    });
+  }
+
   function confirmarTrocaInscricao() {
     const eventoId = document.getElementById('evento-inscritos-clube-evento')?.value || document.getElementById('evento-relatorio-evento')?.value;
     const selectClube = document.getElementById('troca-inscricao-clube');
@@ -19459,6 +19539,80 @@ function atualizarEstatisticasGerenciaisFiltradas() {
       }
       return;
     }
+    const flagExterna = document.getElementById('troca-pessoa-externa-flag');
+    const pessoaExterna = flagExterna && flagExterna.checked;
+
+    if (pessoaExterna) {
+      const nomeExt = (document.getElementById('troca-externa-nome')?.value || '').trim();
+      if (!nomeExt) {
+        eventosNotificar('Informe o nome da pessoa externa.', 'error');
+        return;
+      }
+      const cargoExt = (document.getElementById('troca-externa-cargo')?.value || '').trim();
+      const representaClubeExt = !!(document.getElementById('troca-externa-representa-clube')?.checked);
+      const clubeD8Ext = representaClubeExt ? (document.getElementById('troca-externa-clube-d8')?.value || '').trim() : '';
+      const representacaoExt = !representaClubeExt ? (document.getElementById('troca-externa-representacao')?.value || '').trim() : '';
+      if (representaClubeExt && !clubeD8Ext) {
+        eventosNotificar('Selecione o clube do D8.', 'error');
+        return;
+      }
+      const clubeNomeExt = clubeD8Ext || representacaoExt || 'Externo';
+
+      const nomeExtSafe = escapeHtmlContent(nomeExt);
+      const cargoExtSafe = cargoExt ? escapeHtmlContent(cargoExt) : '';
+      const mensagemExt = `Confirma trocar esta inscrição para pessoa externa?\n\nDe: ${eventoTrocaInscricaoAtual.pessoaAtual || '-'}\nPara: ${nomeExtSafe}${cargoExtSafe ? ` (${cargoExtSafe})` : ''}`;
+      const confirmar = (typeof confirmarModal === 'function')
+        ? confirmarModal(mensagemExt, 'Confirmar troca', 'Confirmar', 'Cancelar', 'warning')
+        : Promise.resolve(window.confirm(mensagemExt));
+
+      confirmar.then(confirmado => {
+        if (!confirmado) return;
+        mostrarLoadingOverlay('Trocando inscrição...');
+        google.script.run
+          .withSuccessHandler(resultado => {
+            esconderLoadingOverlay();
+            if (!resultado || !resultado.sucesso) {
+              const msg = (resultado && resultado.erro) ? resultado.erro : 'Erro ao trocar inscrição.';
+              eventosNotificar(msg, 'error');
+              if (typeof mostrarBoxEventos === 'function') mostrarBoxEventos('Erro', msg);
+              return;
+            }
+            const modal = document.getElementById('modal-trocar-inscricao');
+            if (modal) modal.remove();
+            if (resultado.pendente) {
+              const msgP = resultado.mensagem || 'Solicitação enviada para aprovação.';
+              eventosNotificar(msgP, 'info');
+              if (typeof mostrarBoxEventos === 'function') mostrarBoxEventos('Solicitação enviada', msgP);
+              return;
+            }
+            eventosNotificar('Inscrição atualizada com sucesso.');
+            if (typeof mostrarBoxEventos === 'function') mostrarBoxEventos('Sucesso', 'Troca realizada com sucesso.');
+            carregarRelatorioInscritosEvento(true);
+            carregarInscritosClubeEvento(true);
+          })
+          .withFailureHandler(err => {
+            esconderLoadingOverlay();
+            const msg = (err && err.message) ? err.message : 'Erro ao trocar inscrição.';
+            eventosNotificar(msg, 'error');
+            if (typeof mostrarBoxEventos === 'function') mostrarBoxEventos('Erro', msg);
+          })
+          .trocarInscricaoEvento({
+            eventoId: eventoId,
+            inscricaoId: eventoTrocaInscricaoAtual.inscricaoId,
+            clubeNome: clubeNomeExt,
+            pessoaNome: nomeExt,
+            pessoaTipo: cargoExt || 'Convidado',
+            pessoaExterna: true,
+            pessoaCargo: cargoExt,
+            pessoaRepresentaClube: representaClubeExt,
+            pessoaClubeD8: clubeD8Ext,
+            pessoaRepresentacao: representacaoExt,
+            usuarioEmail: (usuarioLogado && usuarioLogado.email) ? usuarioLogado.email : ''
+          });
+      });
+      return;
+    }
+
     const clubeNome = String(selectClube.value || '').trim();
     const pessoaKey = String(selectPessoa.value || '').trim();
     const pessoa = eventoTrocaInscricaoPessoasMap[pessoaKey];

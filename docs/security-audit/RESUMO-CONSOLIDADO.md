@@ -44,3 +44,16 @@ Erros vazam schema (A2-12), endpoints sem escopo (A2-08/13/17), LockService no-o
 4. Injection + escopo por clube + querySuffix.
 5. XSS (helper + Quill + CSP) + headers + CORS.
 6. Hash de senha (se caminho custom ativo) + rate limit + .vercelignore/.gitignore + exceljs.
+
+## Progresso da implementação (branch security/hardening)
+- [x] **Bug 1 (seletor vazio) — causa raiz real** (bridge cross-module global). JÁ EM PRODUÇÃO.
+- [x] **C1/A2-01** service_role key → process.env (literal removido). *Falta owner rotacionar no Supabase.*
+- [x] **C2/A1-01** auth obrigatória no /api + storageKey do token corrigido.
+- [x] **Scanner/camisas** acesso por token de evento HMAC (não quebram com auth ligada).
+  - Limitação v1 conhecida (Médio): token de um evento pode operar em outro evento (não amarra x-event-id ao eventoId do payload). Risco só de insider com link válido. Fix futuro: bindar header ao arg eventoId por ação.
+- [ ] Pendente (Task 6, em sequência): injection PostgREST (querySuffix/or-filter/id encode), escopo por clube, CORS específico (ALLOWED_ORIGIN), headers/CSP, hash de senha (A2-02), rate limit, .vercelignore/.gitignore, migrar xlsx→exceljs.
+- [ ] Frontend design (depois da segurança).
+
+## Ação do OWNER (não automatizável por mim)
+1. Rotacionar service_role key no painel Supabase (a antiga segue válida no histórico git até revogar).
+2. Validar o preview antes de merge à produção (login muda de chave → todos relogam 1x).

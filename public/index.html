@@ -18064,6 +18064,16 @@ function atualizarEstatisticasGerenciaisFiltradas() {
     setBotaoLoading('btn-inscrever-evento-clubes', eventoClubesInscricaoEmAndamento, texto || 'Registrando...');
   }
 
+  function montarDadosInscricaoEventoEmLote(jsonPayload, comprovanteObj) {
+    const dados = Object.assign({}, jsonPayload || {});
+    if (comprovanteObj && comprovanteObj.base64) {
+      dados.comprovanteBase64 = comprovanteObj.base64;
+      dados.comprovanteNome = comprovanteObj.nome || 'comprovante';
+      dados.comprovanteMime = comprovanteObj.mime || 'application/octet-stream';
+    }
+    return dados;
+  }
+
   function inscreverPessoaEventoClubes() {
     if (eventoClubesInscricaoEmAndamento) {
       eventosNotificar('Já existe uma inscrição em andamento.', 'info');
@@ -18141,16 +18151,13 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         pessoas: pessoasPayload.length
       });
 
-      mostrarLoadingOverlay('Registrando inscrições...');
-      setEventoInscricaoEmAndamentoClubes(true, 'Registrando...');
-      const formClubes = document.getElementById('form-inscricao-lote-clubes-aux');
-      const payloadClubesHidden = document.getElementById('form-inscricao-lote-clubes-payload-json');
-      if (!formClubes || !payloadClubesHidden) {
-        esconderLoadingOverlay();
-        setEventoInscricaoEmAndamentoClubes(false);
-        eventosNotificar('Erro interno do formulário. Recarregue a página e tente de novo.', 'error');
+      if (!eventoClubesComprovanteSelecionado || !eventoClubesComprovanteSelecionado.base64) {
+        eventosNotificar('Aguarde o carregamento do comprovante ou selecione o arquivo novamente.', 'error');
         return;
       }
+
+      mostrarLoadingOverlay('Registrando inscrições...');
+      setEventoInscricaoEmAndamentoClubes(true, 'Registrando...');
       const jsonClubes = {
         eventoId: eventoId,
         clubeNome: clube,
@@ -18164,7 +18171,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         loteNome: loteSelecionado ? (loteSelecionado.nomeLote || '') : '',
         eventoNome: (window.eventosList && window.eventosList.find(e => String(e.id) === String(eventoId))) ? (window.eventosList.find(e => String(e.id) === String(eventoId)).nome || '') : ''
       };
-      payloadClubesHidden.value = JSON.stringify(jsonClubes);
+      const dadosEnvioClubes = montarDadosInscricaoEventoEmLote(jsonClubes, eventoClubesComprovanteSelecionado);
 
       google.script.run.withSuccessHandler(resposta => {
         console.log('[Eventos] Resposta do lote (clubes)', resposta);
@@ -18213,7 +18220,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         esconderLoadingOverlay();
         setEventoInscricaoEmAndamentoClubes(false);
         eventosNotificar('Erro ao registrar inscrições.', 'error');
-      }).registrarInscricoesEventoEmLoteComForm(formClubes);
+      }).registrarInscricoesEventoEmLote(dadosEnvioClubes);
     };
 
     setEventoInscricaoEmAndamentoClubes(true, 'Validando...');
@@ -18302,16 +18309,15 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         pessoas: pessoasPayload.length
       });
 
-      mostrarLoadingOverlay('Registrando inscrições...');
-      setEventoInscricaoEmAndamento(true, 'Registrando...');
-      const formAux = document.getElementById('form-inscricao-lote-evento-aux');
-      const payloadHidden = document.getElementById('form-inscricao-lote-payload-json');
-      if (!formAux || !payloadHidden) {
+      if (!eventoComprovanteSelecionado || !eventoComprovanteSelecionado.base64) {
         esconderLoadingOverlay();
         setEventoInscricaoEmAndamento(false);
-        eventosNotificar('Erro interno do formulário. Recarregue a página e tente de novo.', 'error');
+        eventosNotificar('Aguarde o carregamento do comprovante ou selecione o arquivo novamente.', 'error');
         return;
       }
+
+      mostrarLoadingOverlay('Registrando inscrições...');
+      setEventoInscricaoEmAndamento(true, 'Registrando...');
       const jsonPayload = {
         eventoId: eventoId,
         clubeNome: clube,
@@ -18325,7 +18331,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         loteNome: loteSelecionado ? (loteSelecionado.nomeLote || '') : '',
         eventoNome: (window.eventosList && window.eventosList.find(e => String(e.id) === String(eventoId))) ? (window.eventosList.find(e => String(e.id) === String(eventoId)).nome || '') : ''
       };
-      payloadHidden.value = JSON.stringify(jsonPayload);
+      const dadosEnvio = montarDadosInscricaoEventoEmLote(jsonPayload, eventoComprovanteSelecionado);
 
       google.script.run.withSuccessHandler(resposta => {
         console.log('[Eventos] Resposta do lote', resposta);
@@ -18368,7 +18374,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         esconderLoadingOverlay();
         setEventoInscricaoEmAndamento(false);
         eventosNotificar('Erro ao registrar inscrições.', 'error');
-      }).registrarInscricoesEventoEmLoteComForm(formAux);
+      }).registrarInscricoesEventoEmLote(dadosEnvio);
     };
 
     setEventoInscricaoEmAndamento(true, 'Validando...');

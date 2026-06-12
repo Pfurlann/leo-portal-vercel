@@ -156,7 +156,7 @@ module.exports = async function handler(req, res) {
     const result = await fn(...(Array.isArray(args) ? args : [args]));
     return res.status(200).json(result !== undefined ? result : { sucesso: true });
   } catch (err) {
-    console.error(`[API] Error in ${action}:`, err.message);
-    return res.status(500).json({ sucesso: false, erro: err.message });
+    console.error(`[API] Error in ${action}:`, err);
+    return res.status(500).json({ sucesso: false, erro: 'Erro interno do servidor. Tente novamente.' });
   }
 };

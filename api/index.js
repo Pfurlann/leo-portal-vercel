@@ -36,11 +36,16 @@ async function verifyAuth(req) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
+  // URL e anon key são públicos (a anon key vai pro browser por design); usar fallback
+  // garante que verifyAuth funcione mesmo se a env var não estiver no escopo do deploy
+  // (ex.: SUPABASE_URL ausente em Preview) — sem isso, auth falharia em todos os requests.
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://bqkttaflhtsdkamgscnf.supabase.co';
+  const anonKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
   try {
-    const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'apikey': process.env.SUPABASE_ANON_KEY,
+        'apikey': anonKey,
       }
     });
     if (res.status !== 200) return null;

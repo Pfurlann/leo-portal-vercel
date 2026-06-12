@@ -24,7 +24,14 @@
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ erro: res.statusText }));
-      throw new Error(err.erro || res.statusText);
+      const msg = err.erro || res.statusText;
+      if (res.status === 401) {
+        // Session expired or missing — surface clearly; caller may redirect to login
+        const e = new Error(msg || 'Sessão expirada. Faça login novamente.');
+        e.status = 401;
+        throw e;
+      }
+      throw new Error(msg);
     }
     return res.json();
   };

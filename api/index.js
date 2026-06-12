@@ -50,6 +50,21 @@ async function verifyAuth(req) {
   }
 }
 
+// ─── Public actions (no auth required) ────────────────────────────────────
+// These are callable without a valid session — guest event form only.
+// Everything else requires a valid Supabase JWT.
+const PUBLIC_ACTIONS = new Set([
+  'obterInfoFormularioConvidado',
+  'registrarInscricaoConvidadoExterno',
+  'isFormularioConvidadosAtivo', // harmless read used as guest-form gate
+]);
+
+// TODO (A1-02): per-action role enforcement — stub below for next task.
+// const ACTION_ROLES = {
+//   'deletarInscricao': ['admin', 'diretoria'],
+//   // ...
+// };
+
 // ─── Handler ───────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
@@ -74,6 +89,14 @@ module.exports = async function handler(req, res) {
 
   const { action, args = [] } = body || {};
   if (!action) return res.status(400).json({ sucesso: false, erro: 'Missing action' });
+
+  // ─── Auth enforcement ───────────────────────────────────────────────────
+  if (!PUBLIC_ACTIONS.has(action)) {
+    const authUser = await verifyAuth(req);
+    if (!authUser) {
+      return res.status(401).json({ sucesso: false, erro: 'Não autenticado. Faça login novamente.' });
+    }
+  }
 
   loadBackend();
 

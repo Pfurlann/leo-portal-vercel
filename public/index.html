@@ -7889,6 +7889,7 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
        
        supabasePortal = createClient(SUPABASE_CONFIG_PORTAL.url, SUPABASE_CONFIG_PORTAL.anonKey, {
          auth: {
+           storageKey: 'sb-session',
            autoRefreshToken: true,
            persistSession: true,
            detectSessionInUrl: true

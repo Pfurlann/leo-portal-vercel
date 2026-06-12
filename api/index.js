@@ -1,5 +1,69 @@
 'use strict';
 
+// ─── Rate limiting (in-memory, best-effort) ────────────────────────────────
+// NOTE: Vercel serverless has NO shared memory across instances. This limiter
+// throttles bursts hitting the *same warm instance* only — it is best-effort,
+// not a full solution. For production-grade limiting (all instances), replace
+// _rateLimitStore with Vercel KV or Upstash Redis:
+//
+//   TODO (KV): npm i @upstash/redis, then:
+//     import { Redis } from '@upstash/redis';
+//     const redis = Redis.fromEnv();
+//     // INCR key; EXPIRE key RL_WINDOW_S; read count → 429 if over limit.
+//   Use environment vars UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN.
+//
+// Login brute-force is NOT a concern here: Supabase login goes to GoTrue
+// directly in the browser — it does NOT pass through /api. The relevant
+// abuse surfaces are:
+//   • Guest-form writes (registrarInscricaoConvidadoExterno): spam/flood.
+//   • General endpoint flooding: DoS against authenticated actions.
+
+// ── Tuneable limits ─────────────────────────────────────────────────────────
+const RL_WINDOW_MS    = 60_000; // sliding window length (ms)
+const RL_PUBLIC_LIMIT = 30;     // req/window for PUBLIC_ACTIONS (guest form)
+//  30/min: generous for a legitimate guest (a handful of calls), but caps
+//  scripted spam quickly. Raise if real event sign-up flows need more.
+const RL_AUTH_LIMIT   = 200;    // req/window for authenticated / staff actions
+//  200/min: a busy admin dashboard can fire many actions on page load.
+//  This only fires on extreme misuse; raise further if you see false positives.
+
+// ── In-memory store ─────────────────────────────────────────────────────────
+/** @type {Map<string, { count: number, windowStart: number }>} */
+const _rateLimitStore = new Map();
+
+// Periodic cleanup to prevent unbounded Map growth on long-lived instances.
+// Entries older than one window are stale and safe to delete.
+const _cleanup = setInterval(() => {
+  const cutoff = Date.now() - RL_WINDOW_MS;
+  for (const [ip, entry] of _rateLimitStore) {
+    if (entry.windowStart < cutoff) _rateLimitStore.delete(ip);
+  }
+}, 5 * 60_000); // every 5 min
+if (_cleanup.unref) _cleanup.unref(); // don't keep Node alive in test harnesses
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function getClientIP(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return String(xff).split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+/**
+ * Fixed-window counter per IP.
+ * Returns true (allowed) or false (limit exceeded).
+ */
+function checkRateLimit(ip, limit) {
+  const now = Date.now();
+  let entry = _rateLimitStore.get(ip);
+  if (!entry || now - entry.windowStart >= RL_WINDOW_MS) {
+    _rateLimitStore.set(ip, { count: 1, windowStart: now });
+    return true; // first request in fresh window — always allowed
+  }
+  if (entry.count >= limit) return false;
+  entry.count += 1;
+  return true;
+}
+
 // ─── Backend modules ───────────────────────────────────────────────────────
 let _loaded = false;
 const allFunctions = {};
@@ -102,6 +166,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-event-id, x-event-token');
 
+  // OPTIONS preflight must never be rate-limited — browsers send it automatically.
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -120,6 +185,21 @@ module.exports = async function handler(req, res) {
 
   const { action, args = [] } = body || {};
   if (!action) return res.status(400).json({ sucesso: false, erro: 'Missing action' });
+
+  // ─── Rate limiting (best-effort, in-memory) ─────────────────────────────
+  // Applied BEFORE auth so unauthenticated floods are stopped early.
+  // Limits differ by action class: public (guest form) gets a stricter cap;
+  // authenticated actions get a generous cap that only fires on misuse/DoS.
+  const clientIP = getClientIP(req);
+  const isPublicAction = PUBLIC_ACTIONS.has(action);
+  const rlLimit = isPublicAction ? RL_PUBLIC_LIMIT : RL_AUTH_LIMIT;
+  if (!checkRateLimit(clientIP, rlLimit)) {
+    res.setHeader('Retry-After', String(Math.ceil(RL_WINDOW_MS / 1000)));
+    return res.status(429).json({
+      sucesso: false,
+      erro: 'Muitas requisições. Aguarde alguns segundos e tente novamente.',
+    });
+  }
 
   // ─── Auth enforcement ───────────────────────────────────────────────────
   if (!PUBLIC_ACTIONS.has(action)) {

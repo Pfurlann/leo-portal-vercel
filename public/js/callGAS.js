@@ -14,11 +14,18 @@
   // callGAS('functionName', arg1, arg2, ...) → Promise<result>
   window.callGAS = async function callGAS(action, ...args) {
     const token = getToken();
+    // Event-staff token: set window.__eventStaffAuth = { eventoId, token } to authenticate
+    // scanner/camisas pages without a user session (HMAC-based per-event access).
+    const staffAuth = window.__eventStaffAuth;
+    const staffHeaders = (staffAuth && staffAuth.eventoId && staffAuth.token)
+      ? { 'x-event-id': String(staffAuth.eventoId), 'x-event-token': String(staffAuth.token) }
+      : {};
     const res = await fetch(`${API_BASE}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...staffHeaders,
       },
       body: JSON.stringify({ action, args }),
     });

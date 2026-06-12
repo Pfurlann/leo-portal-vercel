@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Scanner Passaporte | LEO Portal</title>
   <script>
+    // Parse EVENTO_ID and event-staff token from URL query params (Vercel static deploy).
+    // Must run before the GAS template block below so EVENTO_ID is available even when
+    // the template tags are not processed server-side.
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var ev = (params.get('evento') || '').trim();
+        var tk = (params.get('token') || '').trim();
+        if (ev) {
+          window.EVENTO_ID = ev;
+          window.EVENTO_NOME = window.EVENTO_NOME || '';
+        }
+        if (ev && tk) {
+          window.__eventStaffAuth = { eventoId: ev, token: tk };
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script>
     var EVENTO_ID = (<?!= eventoIdJson ?> || '').trim();
     var EVENTO_NOME = (<?!= eventoNomeJson ?> || '').trim();
   </script>
@@ -119,6 +138,29 @@ window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';
 window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
 </script>
 <script src="/js/callGAS.js"></script>
+<script>
+  // If a token was supplied in the URL, validate it before showing the scanner UI.
+  // An invalid token means the link has been tampered with or the secret rotated.
+  (function () {
+    var auth = window.__eventStaffAuth;
+    if (!auth || !auth.eventoId || !auth.token) return; // no token → proceed normally
+    document.addEventListener('DOMContentLoaded', function () {
+      window.callGAS('validarAcessoStaffEvento', auth.eventoId, auth.token)
+        .then(function (r) {
+          if (!r || !r.sucesso) {
+            var cont = document.querySelector('.container');
+            if (cont) {
+              cont.innerHTML =
+                '<div style="padding:28px 20px;color:#fff;background:#dc3545;border-radius:12px;margin-top:24px;text-align:center;font-size:16px;">' +
+                'Link de acesso inválido ou expirado — solicite um novo link ao distrital.' +
+                '</div>';
+            }
+          }
+        })
+        .catch(function () {}); // network error → let the scanner fail naturally
+    });
+  })();
+</script>
 </head>
 <body>
   <div id="overlay-loading">

@@ -55,13 +55,39 @@ async function verifyAuth(req) {
   }
 }
 
+// ─── Event-staff token verification ───────────────────────────────────────
+const { validEventStaffToken } = require('../lib/event-staff-auth');
+
+// Actions the scanner and camisas pages call — authorised by event-staff token OR JWT.
+// Enumerated from grep of public/scanner_refeicoes.html and public/camisas_enumeradas.html.
+const EVENT_STAFF_ACTIONS = new Set([
+  // scanner_refeicoes.html
+  'credenciarPlenariaLote',
+  'consumirRefeicoesPassaporteLote',
+  'credenciarInscricoesModalidadeLote',
+  'validarSaldoRefeicaoPassaporte',
+  'obterCacheValidacaoAlimentacao',
+  'obterCacheValidacaoCredenciamento',
+  'obterCachePlenaria',
+  'listarModalidadesEvento',
+  'listarCredenciadosModalidade',
+  'removerCredenciamentoModalidade',
+  'removerCredenciamentoPlenaria',
+  'listarCredenciadosPlenaria',
+  // camisas_enumeradas.html
+  'listarCamisasEnumeradas',
+  'salvarCamisaEnumerada',
+  'enviarComprovanteCamisaParaDrive',
+]);
+
 // ─── Public actions (no auth required) ────────────────────────────────────
 // These are callable without a valid session — guest event form only.
-// Everything else requires a valid Supabase JWT.
+// Everything else requires a valid Supabase JWT or an event-staff token.
 const PUBLIC_ACTIONS = new Set([
   'obterInfoFormularioConvidado',
   'registrarInscricaoConvidadoExterno',
   'isFormularioConvidadosAtivo', // harmless read used as guest-form gate
+  'validarAcessoStaffEvento',    // token validity check used by scanner/camisas UI (no data returned)
 ]);
 
 // TODO (A1-02): per-action role enforcement — stub below for next task.
@@ -74,7 +100,7 @@ const PUBLIC_ACTIONS = new Set([
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-event-id, x-event-token');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -97,9 +123,24 @@ module.exports = async function handler(req, res) {
 
   // ─── Auth enforcement ───────────────────────────────────────────────────
   if (!PUBLIC_ACTIONS.has(action)) {
-    const authUser = await verifyAuth(req);
-    if (!authUser) {
-      return res.status(401).json({ sucesso: false, erro: 'Não autenticado. Faça login novamente.' });
+    // For event-staff actions: accept a valid event token OR a valid JWT.
+    if (EVENT_STAFF_ACTIONS.has(action)) {
+      const eventId = req.headers['x-event-id'];
+      const eventToken = req.headers['x-event-token'];
+      const tokenOk = validEventStaffToken(eventId, eventToken);
+      if (!tokenOk) {
+        // Token missing or invalid — fall back to JWT auth
+        const authUser = await verifyAuth(req);
+        if (!authUser) {
+          return res.status(401).json({ sucesso: false, erro: 'Não autenticado. Faça login ou use um link de acesso de evento válido.' });
+        }
+      }
+    } else {
+      // Non-staff action: always requires JWT
+      const authUser = await verifyAuth(req);
+      if (!authUser) {
+        return res.status(401).json({ sucesso: false, erro: 'Não autenticado. Faça login novamente.' });
+      }
     }
   }
 

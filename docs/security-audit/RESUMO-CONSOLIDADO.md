@@ -57,3 +57,16 @@ Erros vazam schema (A2-12), endpoints sem escopo (A2-08/13/17), LockService no-o
 ## Ação do OWNER (não automatizável por mim)
 1. Rotacionar service_role key no painel Supabase (a antiga segue válida no histórico git até revogar).
 2. Validar o preview antes de merge à produção (login muda de chave → todos relogam 1x).
+
+## Status final do hardening (branch security/hardening)
+Feito e revisado: service_role→env, auth no /api + storageKey, verifyAuth resiliente, token de evento scanner/camisas, headers+CSP+CORS+.vercelignore/.gitignore, injection PostgREST + select sem senha + erro 500 genérico, Utilities.getUuid, rate limit best-effort.
+
+Deferido (decisão/ação do owner):
+- A2-02 senha cleartext: caminho `buscarUsuarioNoSupabase` é CÓDIGO MORTO (login é GoTrue). Recomendação: remover o caminho, não migrar pra hash.
+- Escopo por clube server-side (A1-04 fundo): muda comportamento; precisa modelo de papéis definido.
+- A2-14 inscrições duplicadas: criar constraint UNIQUE(evento_id, pessoa_nome) no Supabase.
+- xlsx→exceljs: NÃO recomendado (export-only, CVE inaplicável, risco de regressão > benefício).
+- Rate limit é best-effort (memória por instância); produção robusta precisa Vercel KV/Upstash (TODO no api/index.js).
+- Limitação v1 do token de evento: não amarra x-event-id ao eventoId do payload (risco só de insider).
+
+Bloqueios p/ merge à produção: (1) owner validar preview; (2) owner rotacionar service_role key.

@@ -502,6 +502,37 @@ window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';
 window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
 </script>
 <script src="/js/callGAS.js"></script>
+<script>
+  // Parse evento and token from URL query params and set up event-staff authentication.
+  // The camisas page may be shared as /camisas?evento=<id>&token=<hmac> for event staff.
+  (function () {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var ev = (params.get('evento') || '').trim();
+      var tk = (params.get('token') || '').trim();
+      if (ev) { window.EVENTO_ID = ev; }
+      if (ev && tk) { window.__eventStaffAuth = { eventoId: ev, token: tk }; }
+      // Validate token on load; replace page content if invalid.
+      if (ev && tk) {
+        document.addEventListener('DOMContentLoaded', function () {
+          window.callGAS('validarAcessoStaffEvento', ev, tk)
+            .then(function (r) {
+              if (!r || !r.sucesso) {
+                var page = document.querySelector('.page');
+                if (page) {
+                  page.innerHTML =
+                    '<div style="padding:28px 20px;color:#b91c1c;background:#fee2e2;border-radius:12px;margin-top:24px;text-align:center;font-size:16px;">' +
+                    'Link de acesso inválido ou expirado — solicite um novo link ao distrital.' +
+                    '</div>';
+                }
+              }
+            })
+            .catch(function () {});
+        });
+      }
+    } catch (e) {}
+  })();
+</script>
 </head>
 <body>
   <div class="page">

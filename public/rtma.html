@@ -2847,7 +2847,13 @@ function inicializarSupabase() {
       return null;
     }
     
-    supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+    supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+      auth: {
+        storageKey: 'sb-session',
+        persistSession: true,
+        autoRefreshToken: true
+      }
+    });
     console.log('✅ Supabase inicializado');
     return supabase;
   } catch (error) {

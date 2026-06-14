@@ -2,3 +2,16 @@
 .env*.local
 node_modules/
 .superpowers/
+
+# Backups / GAS source (contain old secrets — purge from history separately)
+*.gs
+index - funcional.html
+
+# Tooling
+.specstory/
+.vscode/
+.cursorindexingignore
+
+# Env
+.env
+.env.*

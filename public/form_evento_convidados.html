@@ -42,8 +42,8 @@
     .btn-add-pessoa:hover { background: #051C2C; }
   </style>
   <script>
-    var __URL_EVENTO_ID__ = <?!= eventoIdJson ?>;
-    var __URL_LOTE_ID__ = <?!= loteIdJson ?>;
+    var __URL_EVENTO_ID__ = (new URLSearchParams(window.location.search).get('evento') || '');
+    var __URL_LOTE_ID__ = (new URLSearchParams(window.location.search).get('lote') || '');
   </script>
 <script>
 window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';

@@ -62,6 +62,11 @@
     })();
   </script>
 
+  <!-- Google Fonts — Civic Modern identity (Phase 1) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" sizes="32x32" href="https://i.imgur.com/WZhg99L.png">
   <link rel="icon" type="image/png" sizes="16x16" href="https://i.imgur.com/WZhg99L.png">
@@ -109,23 +114,52 @@
       --radius-xl:  12px;
       --radius-2xl: 16px;
 
-      --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
-      --shadow-sm: 0 1px 4px rgba(0,0,0,0.08);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
-      --shadow-lg: 0 20px 56px rgba(0,0,0,0.18);
+      /* navy-tinted shadows */
+      --shadow-xs: 0 1px 2px rgba(10,35,66,.05);
+      --shadow-sm: 0 1px 4px rgba(10,35,66,.08);
+      --shadow-md: 0 6px 18px rgba(10,35,66,.10);
+      --shadow-lg: 0 24px 56px rgba(10,35,66,.16);
 
-      --color-text:       #212529;
-      --color-text-2:     #495057;
-      --color-text-muted: #6c757d;
-      --color-text-faint: #adb5bd;
-      --color-border:     #e9ecef;
-      --color-border-2:   #dee2e6;
-      --color-surface:    #f8f9fa;
+      /* warmer neutrals */
+      --color-text:       #1A1F2B;
+      --color-text-2:     #3A4253;
+      --color-text-muted: #5B6472;
+      --color-text-faint: #9AA2B1;
+      --color-border:     #E7E3DA;
+      --color-border-2:   #DAD5C9;
+      --color-surface:    #FAF9F6;
       --color-white:      #ffffff;
+
+      /* brand — Civic Modern */
+      --brand-ink:      #0A2342;
+      --brand-ink-2:    #08203E;
+      --brand-gold:     #E8B431;
+      --brand-gold-soft:#F4D58D;
+      --ok:    #2E7D5B;
+      --warn:  #C9971C;
+      --danger:#C0473E;
+      --info:  #2D6E8E;
     }
 
     * {
       box-sizing: border-box;
+    }
+
+    /* === CIVIC MODERN — FASE 1: TIPOGRAFIA === */
+    button, input, select, textarea {
+      font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    h1, h2, h3 {
+      font-family: 'Fraunces', Georgia, serif;
+      letter-spacing: -0.01em;
+    }
+    .login-section h3 {
+      font-family: 'Fraunces', Georgia, serif;
+      letter-spacing: -0.01em;
+    }
+    .header-left h1 {
+      font-family: 'Fraunces', Georgia, serif;
+      letter-spacing: -0.02em;
     }
 
     /* Modal legado; estilos do link de recuperação vêm após o `button` global (evita barra escura) */
@@ -134,10 +168,10 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       margin: 0;
-      background: #f8f9fa;
-      color: #212529;
+      background: var(--color-surface);
+      color: var(--color-text);
       min-height: 100vh;
     }
 
@@ -337,6 +371,8 @@
       min-height: 100vh;
       margin: -30px -20px;
       padding: 30px 20px;
+      /* Civic Modern: navy signature backdrop */
+      background: linear-gradient(135deg, var(--brand-ink) 0%, var(--brand-ink-2) 100%);
     }
 
     #secao-login .login-section,
@@ -467,7 +503,9 @@
       padding: 40px;
       background: white;
       border-radius: 20px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow-lg);
+      /* Civic Modern: gold signature accent on login card */
+      border-top: 3px solid var(--brand-gold);
     }
 
     .login-section h3 {
@@ -1038,8 +1076,8 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 4px;
-      background: #495057;
+      height: 3px;
+      background: var(--brand-gold);
       border-radius: 12px 12px 0 0;
     }
 
@@ -1351,7 +1389,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, var(--brand-ink), var(--brand-ink-2));
       color: white;
       border-radius: 8px;
       margin-bottom: 20px;
@@ -5098,6 +5136,29 @@
     .btn-secondary:hover {
       background: #545b62;
       transform: translateY(-2px);
+    }
+
+    /* === CIVIC MODERN — FASE 1: BOTÃO PRIMÁRIO NAVY === */
+    .btn-primary {
+      background: var(--brand-ink);
+      border-color: var(--brand-ink);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--brand-ink-2);
+      transform: translateY(-2px);
+    }
+    .btn-primary:focus-visible {
+      box-shadow: 0 0 0 3px var(--brand-gold-soft);
+      outline: none;
+    }
+    .btn-login-primario-leo {
+      background: var(--brand-ink);
+      border-color: var(--brand-ink);
+      color: #fff;
+    }
+    .btn-login-primario-leo:hover {
+      background: var(--brand-ink-2);
     }
 
     /* === ESTILOS DO MODAL DE RANKING === */

@@ -25842,7 +25842,16 @@ function atualizarEstatisticasGerenciaisFiltradas() {
      const pendentes = aprovacoesFiltroStatus === 'pendentes';
      const trocasFiltradas = filtrarPorStatus(aprovacoesCacheTrocas, pendentes);
      const trocasIncoming = pendentes ? aprovacoesCacheTrocasIncoming : [];
-     const trocasParaExibir = pendentes ? (trocasIncoming.concat(trocasFiltradas)) : trocasFiltradas;
+     const trocasParaExibirRaw = pendentes ? (trocasIncoming.concat(trocasFiltradas)) : trocasFiltradas;
+     // Dedup por id: trocas externas aparecem tanto na lista do clube solicitante quanto no incoming.
+     const __vistosTrocaId = {};
+     const trocasParaExibir = trocasParaExibirRaw.filter(function(s) {
+       const id = String(s && s.id ? s.id : '');
+       if (!id) return true;
+       if (__vistosTrocaId[id]) return false;
+       __vistosTrocaId[id] = true;
+       return true;
+     });
      const transferenciasFiltradas = filtrarPorStatus(aprovacoesCacheTransferencias, pendentes);
      const transferenciasIncoming = pendentes ? aprovacoesCacheTransferenciasIncoming : [];
      const transferenciasParaExibir = pendentes ? (transferenciasIncoming.concat(transferenciasFiltradas)) : transferenciasFiltradas;

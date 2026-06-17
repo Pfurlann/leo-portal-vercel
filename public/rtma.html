@@ -2636,6 +2636,17 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
               </button>
             </div>
             
+            <!-- Filtro de Período Personalizado -->
+            <div class="filtro-periodo-custom" style="display: flex; align-items: center; gap: 8px; border-left: 2px solid #dee2e6; padding-left: 16px;">
+              <label style="font-weight: 600; color: #495057; white-space: nowrap;">Período:</label>
+              <input type="date" id="filtroDataInicio" style="padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; cursor: pointer;">
+              <span style="color: #6c757d; font-weight: 500;">→</span>
+              <input type="date" id="filtroDataFim" style="padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; cursor: pointer;">
+              <button onclick="filtrarPorPeriodoPersonalizado()" style="padding: 6px 12px; background: #495057; color: white; border: none; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                <i class="fas fa-filter" style="margin-right: 4px;"></i>Aplicar
+              </button>
+            </div>
+
             <!-- Filtro de Clube -->
             <div class="filtro-clube" style="display: flex; align-items: center; gap: 10px;">
               <label style="font-weight: 600; color: #495057; white-space: nowrap;">Filtrar por Clube:</label>
@@ -12590,6 +12601,8 @@ function filtrarPorTrimestre() {
       const dataFimInput = document.getElementById('dataFimPeriodo');
       if (dataInicioInput) dataInicioInput.value = datas.dataInicio;
       if (dataFimInput) dataFimInput.value = datas.dataFim;
+      const fdi = document.getElementById('filtroDataInicio'); if (fdi) fdi.value = datas.dataInicio;
+      const fdf = document.getElementById('filtroDataFim'); if (fdf) fdf.value = datas.dataFim;
       atualizarPeriodoAnalise(datas.dataInicio, datas.dataFim);
       filtrarPessoasComPeriodo(datas.dataInicio, datas.dataFim);
       google.script.run.withSuccessHandler(function(cargos) {
@@ -12620,6 +12633,8 @@ function filtrarPorTrimestre() {
       var dataFimInput = document.getElementById('dataFimPeriodo');
       if (dataInicioInput) dataInicioInput.value = dataInicio;
       if (dataFimInput) dataFimInput.value = dataFim;
+      const fdi2 = document.getElementById('filtroDataInicio'); if (fdi2) fdi2.value = dataInicio;
+      const fdf2 = document.getElementById('filtroDataFim'); if (fdf2) fdf2.value = dataFim;
       atualizarPeriodoAnalise(dataInicio, dataFim);
       filtrarPessoasComPeriodo(dataInicio, dataFim);
       mostrarNotificacao('Filtro aplicado: ' + trimestre + 'º Trimestre (' + (alConfig || '') + ')', 'sucesso');
@@ -12629,6 +12644,27 @@ function filtrarPorTrimestre() {
       mostrarNotificacao('Erro ao obter datas do trimestre', 'erro');
     })
     .obterDatasTrimestreParaDMWrapper(trimestre);
+}
+
+function filtrarPorPeriodoPersonalizado() {
+  const di = document.getElementById('filtroDataInicio')?.value;
+  const df = document.getElementById('filtroDataFim')?.value;
+  if (!di || !df) { mostrarNotificacao('Selecione as duas datas do período', 'erro'); return; }
+  if (di > df) { mostrarNotificacao('Data inicial deve ser anterior à data final', 'erro'); return; }
+  // Sincronizar com inputs do modal DM para que gerarExcelDM use as mesmas datas
+  const inputInicio = document.getElementById('dataInicioPeriodo');
+  const inputFim = document.getElementById('dataFimPeriodo');
+  if (inputInicio) inputInicio.value = di;
+  if (inputFim) inputFim.value = df;
+  // Limpar seleção de trimestre
+  const selAL = document.getElementById('selectAL');
+  const selTrim = document.getElementById('selectTrimestre');
+  if (selAL) selAL.value = '';
+  if (selTrim) selTrim.value = '';
+  atualizarPeriodoAnalise(di, df);
+  filtrarPessoasComPeriodo(di, df);
+  const fmt = d => d.split('-').reverse().join('/');
+  mostrarNotificacao('Período: ' + fmt(di) + ' → ' + fmt(df), 'sucesso');
 }
 
 function limparFiltroTrimestre() {

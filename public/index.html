@@ -11768,7 +11768,7 @@ function inicializarSistema() {
       html += '<div class="dirigente-card">' +
         '<div class="dirigente-cargo">' + escapeHtmlContent(cargo).toUpperCase() + '</div>' +
         '<div class="dirigente-foto-container">' +
-        '<img src="' + escapeHtmlAttr(fotoUrl) + '" alt="' + escapeHtmlAttr(nome) + '" class="dirigente-foto" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'%3E%3Crect width=\'150\' height=\'150\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%236c757d\' font-family=\'Arial\' font-size=\'14\'%3ESem Foto%3C/text%3E%3C/svg%3E\'">' +
+        '<img loading="lazy" src="' + escapeHtmlAttr(fotoUrl) + '" alt="' + escapeHtmlAttr(nome) + '" class="dirigente-foto" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'%3E%3Crect width=\'150\' height=\'150\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%236c757d\' font-family=\'Arial\' font-size=\'14\'%3ESem Foto%3C/text%3E%3C/svg%3E\'">' +
         '</div>' +
         '<div class="dirigente-nome">' + escapeHtmlContent(nome) + '</div>' +
         (isAcessoDistrital && clube ? '<div class="dirigente-clube" style="font-size: 12px; color: #6c757d; margin-top: 4px;">' + escapeHtmlContent(clube) + '</div>' : '') +
@@ -12134,7 +12134,7 @@ function inicializarSistema() {
       html += '<div class="dirigente-card">' +
         '<div class="dirigente-cargo">' + escapeHtmlContent(cargo).toUpperCase() + '</div>' +
         '<div class="dirigente-foto-container">' +
-        '<img src="' + escapeHtmlAttr(fotoUrl) + '" alt="' + escapeHtmlAttr(nome) + '" class="dirigente-foto" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'%3E%3Crect width=\'150\' height=\'150\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%236c757d\' font-family=\'Arial\' font-size=\'14\'%3ESem Foto%3C/text%3E%3C/svg%3E\'">' +
+        '<img loading="lazy" src="' + escapeHtmlAttr(fotoUrl) + '" alt="' + escapeHtmlAttr(nome) + '" class="dirigente-foto" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'%3E%3Crect width=\'150\' height=\'150\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%236c757d\' font-family=\'Arial\' font-size=\'14\'%3ESem Foto%3C/text%3E%3C/svg%3E\'">' +
         '</div>' +
         '<div class="dirigente-nome">' + escapeHtmlContent(nome) + '</div>' +
         '<div class="dirigente-al">AL: ' + escapeHtmlContent(al) + '</div>' +
@@ -14457,8 +14457,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
             return `
               <div class="file-card">
                 <div class="file-preview" style="height: auto; max-height: none; overflow: visible;">
-                  <img id="modal-campanha-gerencial-img-${index}" 
-                       src="${escapeHtmlAttr(arquivo.url)}"
+                  <img id="modal-campanha-gerencial-img-${index}"
                        alt="${escapeHtmlAttr(arquivo.nome)}" 
                        style="width: 100%; height: auto; object-fit: contain; cursor: pointer; max-height: none;"
                        data-url="${escapeHtmlAttr(arquivo.url)}" onclick="abrirImagemFullscreen(this.dataset.url)">
@@ -16310,7 +16309,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
       const iconeEditar = '<i class="fas fa-pencil-alt" aria-hidden="true"></i>';
       const fotoUrl = (evento.fotoUrl || '').trim();
       const imgHtml = fotoUrl
-        ? '<img src="' + escapeHtmlAttr(fotoUrl) + '" alt="" class="evento-card-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;">'
+        ? '<img loading="lazy" src="' + escapeHtmlAttr(fotoUrl) + '" alt="" class="evento-card-img" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:0;">'
         : '';
       return `
         <div class="evento-card evento-card-clicavel" data-evento-id="${evIdAttr}" onclick="abrirModalDetalhesEventoCard(event)" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); abrirModalDetalhesEventoCard(event); }" role="button" tabindex="0">
@@ -23729,8 +23728,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
                  return `
                    <div class="file-card">
                      <div class="file-preview" style="height: auto; max-height: none; overflow: visible;">
-                       <img id="modal-campanha-filtrada-img-${index}" 
-                            src="${escapeHtmlAttr(midia.url)}"
+                       <img id="modal-campanha-filtrada-img-${index}"
                             alt="${escapeHtmlAttr(midia.nome)}" 
                             style="width: 100%; height: auto; object-fit: contain; cursor: pointer; max-height: none;"
                             data-url="${escapeHtmlAttr(midia.url)}" onclick="abrirImagemFullscreen(this.dataset.url)">
@@ -24173,8 +24171,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
                    <h4><i class="fas fa-camera"></i> Foto Oficial</h4>
                    <div style="max-width: 600px; margin: 0 auto;">
                      <div style="height: auto; max-height: none; overflow: visible;">
-                       <img id="correcao-atividade-img-${index}" 
-                            src="${atividade.linkFotoOficial}"
+                       <img id="correcao-atividade-img-${index}"
                             alt="Foto Oficial da Atividade" 
                             style="width: 100%; height: auto; object-fit: contain; cursor: pointer; max-height: none; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"
                             data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
@@ -27811,8 +27808,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
          <div class="modal-section">
            <h4>📸 Foto Oficial</h4>
            <div class="modal-image-container">
-             <img id="modal-atividade-gabinete-img" 
-                  src="${atividade.linkFotoOficial}"
+             <img id="modal-atividade-gabinete-img"
                   alt="Foto Oficial" 
                   style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; cursor: pointer;"
                   data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)">
@@ -28548,7 +28544,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
     return `
       <div class="drive-item-grid" data-item-id="${item.id}" data-item-tipo="${item.tipo}" ondblclick="abrirItemDrive(this.dataset.itemId, this.dataset.itemTipo)">
         <div class="item-preview">
-          ${thumbnail ? `<img src="${thumbnail}" alt="${escapeHtmlAttr(item.nome)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
+          ${thumbnail ? `<img loading="lazy" src="${thumbnail}" alt="${escapeHtmlAttr(item.nome)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
           <div class="item-icone-grande ${thumbnail ? 'hidden' : ''}">
             <span class="material-icons">${icone}</span>
           </div>
@@ -29130,7 +29126,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
            data-item-id="${item.id}" data-item-nome="${escapeHtmlAttr(item.nome)}" data-is-folder="${item.isFolder}" ondblclick="this.dataset.isFolder === 'true' ? abrirPastaCompartilhada(this.dataset.itemId, this.dataset.itemNome) : visualizarArquivoCompartilhado(this.dataset.itemId)"
            data-item-id="${item.id}" data-item-tipo="${item.tipo}" data-item-nome="${escapeHtmlAttr(item.nome)}" data-is-folder="${item.isFolder}" oncontextmenu="mostrarMenuContextoDrive(event, this.dataset.itemId, this.dataset.itemTipo, this.dataset.itemNome, this.dataset.isFolder === 'true')">
         <div class="file-preview">
-          ${thumbnail ? `<img src="${thumbnail}" alt="${escapeHtmlAttr(item.nome)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
+          ${thumbnail ? `<img loading="lazy" src="${thumbnail}" alt="${escapeHtmlAttr(item.nome)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
           <div class="file-icon-large ${thumbnail ? 'hidden' : ''}" style="${thumbnail ? 'display:none' : 'display:flex'}">
             ${obterIconeArquivoMaterial(item.mimeType)}
           </div>
@@ -30670,7 +30666,7 @@ function atualizarEstatisticasGerenciaisFiltradas() {
     return `
       <div class="drive-item-grid" data-item-id="${item.id}" data-is-folder="${item.isFolder}" ondblclick="abrirItemModerno(this.dataset.itemId, this.dataset.isFolder === 'true')">
         <div class="item-preview">
-          ${thumbnail ? `<img src="${thumbnail}" alt="${escapeHtmlAttr(item.nome)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
+          ${thumbnail ? `<img loading="lazy" src="${thumbnail}" alt="${escapeHtmlAttr(item.nome)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
           <div class="item-icone-grande ${thumbnail ? 'hidden' : ''}">${icone}</div>
         </div>
         <div class="item-info">
@@ -32957,6 +32953,45 @@ ${erro.message || erro}`);
        });
    }
 
+  // Reduz egress/tamanho: redimensiona p/ máx 1200px e recomprime antes do upload.
+  // Mantém MIME (PNG preserva transparência; JPEG/WebP usam quality). Não-imagens passam direto.
+  function comprimirDataUrlImagem(dataUrl, mimeType, maxDim = 1200, quality = 0.80) {
+    return new Promise((resolve) => {
+      try {
+        const tipo = String(mimeType || '').toLowerCase();
+        if (!tipo.startsWith('image/') || tipo === 'image/gif' || tipo === 'image/svg+xml') {
+          return resolve(dataUrl);
+        }
+        const saidaTipo = (tipo === 'image/png' || tipo === 'image/webp') ? tipo : 'image/jpeg';
+        const img = new Image();
+        img.onload = function() {
+          const maior = Math.max(img.width, img.height);
+          const escala = maior > maxDim ? maxDim / maior : 1;
+          const w = Math.max(1, Math.round(img.width * escala));
+          const h = Math.max(1, Math.round(img.height * escala));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(dataUrl);
+          ctx.drawImage(img, 0, 0, w, h);
+          let out;
+          try {
+            out = canvas.toDataURL(saidaTipo, quality);
+          } catch (e) {
+            return resolve(dataUrl);
+          }
+          // Só usa versão comprimida se realmente ficou menor
+          resolve(out && out.length < dataUrl.length ? out : dataUrl);
+        };
+        img.onerror = function() { resolve(dataUrl); };
+        img.src = dataUrl;
+      } catch (err) {
+        resolve(dataUrl);
+      }
+    });
+  }
+
   function processUpload(file, nomeFinal, pastaTag, registroId = null) {
      return new Promise((resolve, reject) => {
       if (!isArquivoPermitido(file, pastaTag)) {
@@ -32986,27 +33021,29 @@ ${erro.message || erro}`);
 
          console.log(`Upload iniciado para arquivo: ${nomeFinal}, Registro ID: ${registroId}`);
 
-         google.script.run
-          .withSuccessHandler((resultado) => {
-             clearTimeout(timeoutId);
-             if (resultado && resultado.sucesso === false) {
-               console.error('Erro no upload:', resultado.erro);
+         comprimirDataUrlImagem(e.target.result, file.type).then((dataUrlFinal) => {
+           google.script.run
+            .withSuccessHandler((resultado) => {
+               clearTimeout(timeoutId);
+               if (resultado && resultado.sucesso === false) {
+                 console.error('Erro no upload:', resultado.erro);
+                uploadArquivosEmAndamento.delete(uploadKey);
+                reject(new Error(resultado.erro));
+               } else {
+                 console.log(`Upload concluído para registro ID: ${registroId}`);
+                 // CORRIGIDO: Retornar o resultado completo (incluindo URL) para que possa ser usado
+                uploadArquivosEmAndamento.delete(uploadKey);
+                 resolve(resultado || { sucesso: true });
+               }
+             })
+             .withFailureHandler((erro) => {
+               clearTimeout(timeoutId);
+               console.error('Erro no upload:', erro);
               uploadArquivosEmAndamento.delete(uploadKey);
-              reject(new Error(resultado.erro));
-             } else {
-               console.log(`Upload concluído para registro ID: ${registroId}`);
-               // CORRIGIDO: Retornar o resultado completo (incluindo URL) para que possa ser usado
-              uploadArquivosEmAndamento.delete(uploadKey);
-               resolve(resultado || { sucesso: true });
-             }
-           })
-           .withFailureHandler((erro) => {
-             clearTimeout(timeoutId);
-             console.error('Erro no upload:', erro);
-            uploadArquivosEmAndamento.delete(uploadKey);
-             reject(erro);
-           })
-           .uploadArquivo(e.target.result, nomeFinal, pastaTag, usuarioLogado.clube, registroId);
+               reject(erro);
+             })
+             .uploadArquivo(dataUrlFinal, nomeFinal, pastaTag, usuarioLogado.clube, registroId);
+         });
        };
        
       reader.onerror = function() {
@@ -33682,8 +33719,7 @@ ${erro.message || erro}`);
                     </div>
                     <div style="display: flex; justify-content: center; margin-bottom: 15px;">
                       <div style="max-width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                        <img id="modal-campanha-img-${index}" 
-                             src="${escapeHtmlAttr(midia.url)}"
+                        <img id="modal-campanha-img-${index}"
                              alt="${escapeHtmlAttr(midia.nome)}" 
                              style="width: 100%; max-width: 1400px; height: auto; object-fit: contain; cursor: pointer; display: block;"
                              data-url="${escapeHtmlAttr(midia.url)}" onclick="abrirImagemFullscreen(this.dataset.url)">
@@ -34167,7 +34203,6 @@ ${erro.message || erro}`);
                <div class="modal-text-block-label"><i class="fas fa-image"></i> Foto Oficial</div>
                <div class="modal-image-container">
                  <img id="modal-atividade-img"
-                      src="${atividade.linkFotoOficial}"
                       alt="Foto Oficial"
                       style="width: 100%; max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--radius-md); cursor: pointer;"
                       data-url="${atividade.linkFotoOficial}" onclick="abrirImagemFullscreen(this.dataset.url)"
@@ -34288,8 +34323,7 @@ ${erro.message || erro}`);
            return `
              <div class="file-card">
                <div class="file-preview" style="height: auto; max-height: none; overflow: visible;">
-                 <img id="modal-campanha-img-${index}" 
-                      src="${escapeHtmlAttr(arquivo.url)}"
+                 <img id="modal-campanha-img-${index}"
                       alt="${escapeHtmlAttr(arquivo.nome)}" 
                       style="width: 100%; height: auto; object-fit: contain; cursor: pointer; max-height: none;"
                       data-url="${escapeHtmlAttr(arquivo.url)}" onclick="abrirImagemFullscreen(this.dataset.url)">

@@ -13207,6 +13207,121 @@ function inicializarSistema() {
       .listarPessoasParaDirigenteGabinete(clubeNome);
   }
 
+  function _lerFotoLinhaLote(inputEl) {
+    return new Promise(function(resolve) {
+      if (!inputEl || !inputEl.files || inputEl.files.length === 0) { resolve(''); return; }
+      var reader = new FileReader();
+      reader.onload = function(e) { resolve(e.target.result || ''); };
+      reader.onerror = function() { resolve(''); };
+      reader.readAsDataURL(inputEl.files[0]);
+    });
+  }
+
+  function salvarDiretoriaLote() {
+    var ehGab = window.__loteEhGabinete;
+    var clube = ehGab ? 'Gabinete Distrital' : (window.__loteClube || '');
+    var alEl = document.getElementById('diretoria-lote-al');
+    var al = alEl ? normalizarAL(alEl.value) : '';
+    if (!al) { alert('Selecione o Ano Leoístico.'); return; }
+
+    var linhas = Array.prototype.slice.call(document.querySelectorAll('#diretoria-lote-linhas tr'));
+    var itensProm = [];
+    var pendencias = [];
+
+    linhas.forEach(function(tr, i) {
+      var cargo = (tr.querySelector('.lote-cargo') || {}).value;
+      cargo = cargo ? String(cargo).trim() : '';
+      var selPessoa = tr.querySelector('.lote-pessoa');
+      var pessoaVal = selPessoa ? selPessoa.value : '';
+      var fotoInput = tr.querySelector('.lote-foto');
+
+      // Linha totalmente vazia é ignorada.
+      var selClube = tr.querySelector('.lote-clube');
+      var clubeVal = selClube ? selClube.value : '';
+      var vazia = !cargo && !pessoaVal && (!ehGab || !clubeVal);
+      if (vazia) return;
+
+      if (!cargo || !pessoaVal || (ehGab && !clubeVal)) {
+        pendencias.push('Linha ' + (i + 1));
+        return;
+      }
+
+      // Resolver pessoa/vínculo
+      var lista, vobj;
+      if (ehGab) {
+        var clubeNome = tr.getAttribute('data-clube-nome') || '';
+        lista = window.__loteGabPessoasPorClube[clubeNome] || [];
+      } else {
+        lista = window.__loteRtmaList || [];
+      }
+      var idx = parseInt(pessoaVal, 10);
+      if (isNaN(idx) || idx < 0 || idx >= lista.length) { pendencias.push('Linha ' + (i + 1) + ' (pessoa)'); return; }
+      vobj = lista[idx];
+      var nome = String(vobj.nome || '').trim();
+      var vinculo = {
+        clube_origem_id: vobj.clube_origem_id != null ? vobj.clube_origem_id : null,
+        pessoa_rtma_id: vobj.origem === 'pessoas_rtma' ? vobj.id : null,
+        pessoa_amigo_id: vobj.origem === 'amigos_conselheiros' ? vobj.id : null
+      };
+      itensProm.push(
+        _lerFotoLinhaLote(fotoInput).then(function(fotoBase64) {
+          return { cargo: cargo, nome: nome, vinculo: vinculoParaStringGAS(vinculo), fotoBase64: fotoBase64 };
+        })
+      );
+    });
+
+    if (pendencias.length) { alert('Preencha cargo, pessoa' + (ehGab ? ' e clube' : '') + ' em: ' + pendencias.join(', ') + '.'); return; }
+    if (!itensProm.length) { alert('Adicione ao menos um cargo com pessoa.'); return; }
+
+    var btn = document.getElementById('diretoria-lote-salvar');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
+
+    Promise.all(itensProm).then(function(itens) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.sucesso) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar Diretoria'; }
+            alert('Erro ao salvar diretoria: ' + ((res && res.erro) || 'desconhecido'));
+            return;
+          }
+          // Provisiona acesso sequencialmente para os itens salvos (ok ou idempotente).
+          var salvos = itens.filter(function(it, k) {
+            var r = res.resultados[k];
+            return r && r.ok;
+          });
+          _provisionarSequencialLote(clube, al, salvos, function() {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar Diretoria'; }
+            var msg = 'Diretoria salva: ' + res.totalOk + ' novo(s)';
+            if (res.totalIdem) msg += ', ' + res.totalIdem + ' já existia(m)';
+            if (res.totalErro) msg += ', ' + res.totalErro + ' com erro';
+            alert(msg + '.');
+            fecharModalCadastrarDiretoria();
+            if (ehGab) { carregarDirigentesGabinete(); } else { carregarDirigentes(); }
+          });
+        })
+        .withFailureHandler(function(erro) {
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salvar Diretoria'; }
+          alert('Erro ao salvar diretoria: ' + erro);
+        })
+        .salvarDiretoriaLote(clube, al, JSON.stringify(itens));
+    });
+  }
+
+  // Chama provisionarAcessoPortalAposNominata um item por vez (evita rajada).
+  // A função de backend ignora cargos fora de Secretário/Diretor de Campanhas.
+  function _provisionarSequencialLote(clube, al, itens, done) {
+    var i = 0;
+    function proximo() {
+      if (i >= itens.length) { done(); return; }
+      var it = itens[i++];
+      google.script.run
+        .withSuccessHandler(function() { proximo(); })
+        .withFailureHandler(function() { proximo(); })
+        .provisionarAcessoPortalAposNominata(clube, it.cargo, it.nome, al, it.vinculo);
+    }
+    proximo();
+  }
+
    // === FUNÇÃO DE TESTE DE COMUNICAÇÃO ===
   function testarComunicacao() {
     console.log('=== INICIANDO TESTE DE COMUNICAÇÃO ===');

@@ -11615,18 +11615,29 @@ function inicializarSistema() {
     return String(x == null ? '' : x).replace(/\//g, '-').trim();
   }
 
-  // Carrega os ALs cadastrados em Configurações. callback([{valor,label,ativo}]).
-  // valor = normalizado (traço); label = 'AL ' + valor original. Ordena desc.
+  // AL vigente calculado pela data de hoje (ano leonístico jul–jun), formato traço.
+  // Espelha o backend obterAlAtual(). Usado para marcar qual AL é o "atual".
+  function obterAlAtualLocal() {
+    var hoje = new Date();
+    var ano = hoje.getFullYear();
+    var mes = hoje.getMonth() + 1; // 1-12
+    return (mes >= 7) ? (ano + '-' + (ano + 1)) : ((ano - 1) + '-' + ano);
+  }
+
+  // Carrega os ALs cadastrados em Configurações. callback([{valor,label,atual}]).
+  // valor = normalizado (traço); label = 'AL ' + valor original; atual = é o AL vigente
+  // (por data, não pela flag do banco). Ordena desc.
   function carregarAnosLeonisticos(callback) {
     if (Array.isArray(window.__alsConfig) && window.__alsConfig.length) {
       callback(window.__alsConfig);
       return;
     }
+    var atualVal = normalizarAL(obterAlAtualLocal());
     function fallbackObterAlAtual() {
       google.script.run
         .withSuccessHandler(function(al) {
           var v = normalizarAL(al);
-          var arr = v ? [{ valor: v, label: 'AL ' + String(al).trim(), ativo: true }] : [];
+          var arr = v ? [{ valor: v, label: 'AL ' + String(al).trim(), atual: true }] : [];
           window.__alsConfig = arr;
           callback(arr);
         })
@@ -11639,7 +11650,8 @@ function inicializarSistema() {
         var als = configs
           .filter(function(c) { return c && c.al; })
           .map(function(c) {
-            return { valor: normalizarAL(c.al), label: 'AL ' + String(c.al).trim(), ativo: !!c.ativo };
+            var v = normalizarAL(c.al);
+            return { valor: v, label: 'AL ' + String(c.al).trim(), atual: (v === atualVal) };
           });
         als.sort(function(a, b) { return b.valor.localeCompare(a.valor); });
         if (!als.length) { fallbackObterAlAtual(); return; }
@@ -11651,18 +11663,18 @@ function inicializarSistema() {
   }
 
   // Popula um <select> com as opções de AL. Marca `valorSelecionado` (normalizado)
-  // ou, se vazio, o AL ativo. Não faz fallback aqui — quem chama decide.
+  // ou, se vazio, o AL atual (vigente). Não faz fallback aqui — quem chama decide.
   function construirOpcoesALSelect(selectEl, als, valorSelecionado) {
     if (!selectEl) return;
     selectEl.innerHTML = '';
     var alvo = valorSelecionado ? normalizarAL(valorSelecionado) : '';
-    var ativoValor = '';
-    (als || []).forEach(function(a) { if (a.ativo && !ativoValor) ativoValor = a.valor; });
-    if (!alvo) alvo = ativoValor;
+    var atualValor = '';
+    (als || []).forEach(function(a) { if (a.atual && !atualValor) atualValor = a.valor; });
+    if (!alvo) alvo = atualValor;
     (als || []).forEach(function(a) {
       var opt = document.createElement('option');
       opt.value = a.valor;
-      opt.textContent = a.label + (a.ativo ? ' (ativo)' : '');
+      opt.textContent = a.label + (a.atual ? ' (atual)' : '');
       if (a.valor === alvo) opt.selected = true;
       selectEl.appendChild(opt);
     });
@@ -11748,17 +11760,17 @@ function inicializarSistema() {
     selectAL.appendChild(optTodos);
     controlsDiv.appendChild(selectAL);
     carregarAnosLeonisticos(function(als) {
-      var ativoValor = '';
-      (als || []).forEach(function(a) { if (a.ativo && !ativoValor) ativoValor = a.valor; });
+      var atualValor = '';
+      (als || []).forEach(function(a) { if (a.atual && !atualValor) atualValor = a.valor; });
       (als || []).forEach(function(a) {
         var opt = document.createElement('option');
         opt.value = a.valor;
-        opt.textContent = a.label + (a.ativo ? ' (ativo)' : '');
-        if (a.valor === ativoValor) opt.selected = true;
+        opt.textContent = a.label + (a.atual ? ' (atual)' : '');
+        if (a.valor === atualValor) opt.selected = true;
         selectAL.appendChild(opt);
       });
-      // Recarrega a lista já filtrada pelo AL ativo, se houver
-      if (ativoValor) { filtroALAtual = ativoValor; carregarDirigentes(); }
+      // Recarrega a lista já filtrada pelo AL atual, se houver
+      if (atualValor) { filtroALAtual = atualValor; carregarDirigentes(); }
     });
     
     // Filtro de clubes (apenas para acesso distrital)
@@ -12027,16 +12039,16 @@ function inicializarSistema() {
     optTodosG.textContent = 'Todos os AL';
     selectAL.appendChild(optTodosG);
     carregarAnosLeonisticos(function(als) {
-      var ativoValorG = '';
-      (als || []).forEach(function(a) { if (a.ativo && !ativoValorG) ativoValorG = a.valor; });
+      var atualValorG = '';
+      (als || []).forEach(function(a) { if (a.atual && !atualValorG) atualValorG = a.valor; });
       (als || []).forEach(function(a) {
         var opt = document.createElement('option');
         opt.value = a.valor;
-        opt.textContent = a.label + (a.ativo ? ' (ativo)' : '');
-        if (a.valor === ativoValorG) opt.selected = true;
+        opt.textContent = a.label + (a.atual ? ' (atual)' : '');
+        if (a.valor === atualValorG) opt.selected = true;
         selectAL.appendChild(opt);
       });
-      if (ativoValorG) { filtroALGabineteAtual = ativoValorG; carregarDirigentesGabinete(); }
+      if (atualValorG) { filtroALGabineteAtual = atualValorG; carregarDirigentesGabinete(); }
     });
     
     controlsDiv.appendChild(btnNovo);
@@ -13061,31 +13073,56 @@ function inicializarSistema() {
     window.__loteGabClubes = [];
     window.__loteGabPessoasPorClube = {};
 
-    var colClube = ehGabinete ? '<th style="text-align:left;padding:8px;">Clube origem</th>' : '';
+    var arrowUri = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23495057' d='M6 9L1 4h10z'/%3E%3C/svg%3E";
+    var estilos =
+      '<style>' +
+      '#modalCadastrarDiretoria .dl-al-group{max-width:260px;margin-bottom:22px;}' +
+      '#modalCadastrarDiretoria .dl-al-group label{display:block;font-size:13px;font-weight:600;color:#495057;margin-bottom:6px;}' +
+      '#modalCadastrarDiretoria .dl-table{width:100%;border-collapse:collapse;table-layout:fixed;}' +
+      '#modalCadastrarDiretoria .dl-table th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a94a6;padding:0 10px 10px;}' +
+      '#modalCadastrarDiretoria .dl-table td{padding:9px 10px;vertical-align:middle;border-top:1px solid #f0f2f5;}' +
+      '#modalCadastrarDiretoria .dl-table tbody tr:first-child td{border-top:none;}' +
+      '#modalCadastrarDiretoria .dl-field{width:100%;box-sizing:border-box;height:40px;border:1px solid #dee2e6;border-radius:8px;padding:8px 12px;font-size:14px;background:#fff;color:#333;}' +
+      '#modalCadastrarDiretoria .dl-field:focus{outline:none;border-color:#4a90d9;box-shadow:0 0 0 3px rgba(74,144,217,.12);}' +
+      "#modalCadastrarDiretoria select.dl-field{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-image:url(\"" + arrowUri + "\");background-repeat:no-repeat;background-position:right 10px center;background-size:12px;padding-right:30px;cursor:pointer;}" +
+      '#modalCadastrarDiretoria .dl-foto{display:flex;align-items:center;gap:8px;min-width:0;}' +
+      '#modalCadastrarDiretoria .dl-foto-btn{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;color:#495057;font-size:13px;cursor:pointer;white-space:nowrap;flex:none;}' +
+      '#modalCadastrarDiretoria .dl-foto-btn:hover{background:#eef0f2;}' +
+      '#modalCadastrarDiretoria .dl-foto-nome{font-size:12px;color:#8a94a6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}' +
+      '#modalCadastrarDiretoria .dl-remover{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;background:none;color:#c0392b;cursor:pointer;border-radius:6px;font-size:15px;}' +
+      '#modalCadastrarDiretoria .dl-remover:hover{background:#fdecea;}' +
+      '#modalCadastrarDiretoria .dl-add{margin-top:16px;}' +
+      '</style>';
+    var colClubeHead = ehGabinete ? '<th>Clube origem</th>' : '';
+    var colgroup = ehGabinete
+      ? '<colgroup><col style="width:23%"><col style="width:21%"><col style="width:28%"><col style="width:20%"><col style="width:8%"></colgroup>'
+      : '<colgroup><col style="width:29%"><col style="width:39%"><col style="width:24%"><col style="width:8%"></colgroup>';
     var modalHTML = '<div class="modal-overlay" id="modalCadastrarDiretoria" onclick="if(event.target.id===\'modalCadastrarDiretoria\')fecharModalCadastrarDiretoria()">' +
-      '<div class="modal-content" onclick="event.stopPropagation()" style="max-width:900px;">' +
+      estilos +
+      '<div class="modal-content" onclick="event.stopPropagation()" style="max-width:920px;">' +
       '<div class="modal-header">' +
       '<h3 style="margin:0;">Cadastrar Diretoria Completa' + (ehGabinete ? ' — Gabinete Distrital' : '') + '</h3>' +
       '<button class="modal-close" onclick="fecharModalCadastrarDiretoria()"><i class="fas fa-xmark"></i></button>' +
       '</div>' +
       '<div class="modal-body">' +
-      '<div class="form-group" style="max-width:220px;">' +
-      '<label>Ano Leoístico <span style="color:red;">*</span></label>' +
-      '<select id="diretoria-lote-al" required></select>' +
+      '<div class="dl-al-group">' +
+      '<label>Ano Leonístico <span style="color:red;">*</span></label>' +
+      '<select id="diretoria-lote-al" class="dl-field" required></select>' +
       '</div>' +
       '<div style="overflow-x:auto;">' +
-      '<table style="width:100%;border-collapse:collapse;">' +
-      '<thead><tr style="border-bottom:1px solid #dee2e6;">' +
-      colClube +
-      '<th style="text-align:left;padding:8px;">Cargo</th>' +
-      '<th style="text-align:left;padding:8px;">Pessoa</th>' +
-      '<th style="text-align:left;padding:8px;">Foto</th>' +
-      '<th style="width:40px;"></th>' +
+      '<table class="dl-table">' +
+      colgroup +
+      '<thead><tr>' +
+      colClubeHead +
+      '<th>Cargo</th>' +
+      '<th>Pessoa</th>' +
+      '<th>Foto</th>' +
+      '<th></th>' +
       '</tr></thead>' +
       '<tbody id="diretoria-lote-linhas"></tbody>' +
       '</table>' +
       '</div>' +
-      '<button type="button" class="btn-secondary" style="margin-top:12px;" onclick="adicionarLinhaDiretoria()"><i class="fas fa-plus"></i> Adicionar cargo</button>' +
+      '<button type="button" class="btn-secondary dl-add" onclick="adicionarLinhaDiretoria()"><i class="fas fa-plus"></i> Adicionar cargo</button>' +
       '</div>' +
       '<div class="modal-footer">' +
       '<button class="btn-secondary" onclick="fecharModalCadastrarDiretoria()">Cancelar</button>' +
@@ -13167,17 +13204,31 @@ function inicializarSistema() {
         var nomeStr = String(c.nome || '').trim();
         clubesOpts += '<option value="' + escapeHtmlAttr(idStr) + '" data-nome="' + escapeHtmlAttr(nomeStr) + '">' + escapeHtmlContent(nomeStr || '(sem nome)') + '</option>';
       });
-      celClube = '<td style="padding:8px;"><select class="lote-clube" style="width:180px;" onchange="recarregarPessoasLinhaLote(' + rowId + ')">' + clubesOpts + '</select></td>';
+      celClube = '<td><select class="lote-clube dl-field" onchange="recarregarPessoasLinhaLote(' + rowId + ')">' + clubesOpts + '</select></td>';
     }
 
     var pessoaOpts = ehGab ? '<option value="">Selecione o clube primeiro</option>' : construirOptionsPessoasLote(null);
     tr.innerHTML =
       celClube +
-      '<td style="padding:8px;"><input type="text" class="lote-cargo" placeholder="Ex: Presidente" style="width:160px;"></td>' +
-      '<td style="padding:8px;"><select class="lote-pessoa" style="width:220px;">' + pessoaOpts + '</select></td>' +
-      '<td style="padding:8px;"><input type="file" class="lote-foto" accept="image/png" style="width:150px;"></td>' +
-      '<td style="padding:8px;text-align:center;"><button type="button" class="btn-icon" title="Remover" onclick="removerLinhaDiretoria(' + rowId + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;"><i class="fas fa-xmark"></i></button></td>';
+      '<td><input type="text" class="lote-cargo dl-field" placeholder="Ex: Presidente"></td>' +
+      '<td><select class="lote-pessoa dl-field">' + pessoaOpts + '</select></td>' +
+      '<td><div class="dl-foto">' +
+        '<label class="dl-foto-btn"><i class="fas fa-paperclip"></i> Anexar' +
+        '<input type="file" class="lote-foto" accept="image/png" style="display:none" onchange="_loteFotoNome(this)"></label>' +
+        '<span class="dl-foto-nome"></span>' +
+      '</div></td>' +
+      '<td style="text-align:center;"><button type="button" class="dl-remover" title="Remover cargo" onclick="removerLinhaDiretoria(' + rowId + ')"><i class="fas fa-xmark"></i></button></td>';
     tbody.appendChild(tr);
+  }
+
+  // Atualiza o nome do arquivo escolhido ao lado do botão "Anexar" (com reticências via CSS).
+  function _loteFotoNome(input) {
+    if (!input) return;
+    var wrap = input.closest ? input.closest('.dl-foto') : null;
+    var span = wrap ? wrap.querySelector('.dl-foto-nome') : null;
+    if (!span) return;
+    span.textContent = (input.files && input.files.length > 0) ? input.files[0].name : '';
+    if (span.title !== undefined) span.title = span.textContent;
   }
 
   // Gabinete: recarrega a lista de pessoas da LINHA quando o clube muda.
@@ -25541,14 +25592,17 @@ function atualizarEstatisticasGerenciaisFiltradas() {
      html += `</div>`;
      container.innerHTML = html;
 
-     // Popular seletor de AL para seção de eixos
+     // Popular seletor de AL para seção de eixos.
+     // "atual" = AL vigente por data (não a flag do banco); só ele recebe o rótulo.
      const alSel = document.getElementById('eixos-al-selector');
      if (alSel && configuracoes && configuracoes.length > 0) {
-       alSel.innerHTML = configuracoes.map(c =>
-         `<option value="${escapeHtmlAttr(c.al)}">${escapeHtmlAttr(c.al)}${c.ativo ? ' (ativo)' : ''}</option>`
-       ).join('');
-       const ativo = configuracoes.find(c => c.ativo);
-       alSel.value = ativo ? ativo.al : configuracoes[0].al;
+       const atualValEixos = normalizarAL(obterAlAtualLocal());
+       alSel.innerHTML = configuracoes.map(c => {
+         const ehAtual = normalizarAL(c.al) === atualValEixos;
+         return `<option value="${escapeHtmlAttr(c.al)}">${escapeHtmlAttr(c.al)}${ehAtual ? ' (atual)' : ''}</option>`;
+       }).join('');
+       const atual = configuracoes.find(c => normalizarAL(c.al) === atualValEixos);
+       alSel.value = atual ? atual.al : configuracoes[0].al;
        carregarEixosCampanhaConfig(alSel.value);
      }
    }

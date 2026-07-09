@@ -12012,18 +12012,22 @@ function inicializarSistema() {
     selectAL.className = 'form-control';
     selectAL.style.cssText = 'width: 140px; height: 40px; border: 1px solid #dee2e6; border-radius: 8px; padding: 8px 32px 8px 12px; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23495057\' d=\'M6 9L1 4h10z\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; cursor: pointer; align-self: center;';
     selectAL.onchange = aplicarFiltroALGabinete;
-    const optionsAL = [
-      { value: '', text: 'Todos os AL' },
-      { value: '2024-2025', text: 'AL 2024-2025' },
-      { value: '2025-2026', text: 'AL 2025-2026', selected: true },
-      { value: '2026-2027', text: 'AL 2026-2027' }
-    ];
-    optionsAL.forEach(opt => {
-      const option = document.createElement('option');
-      option.value = opt.value;
-      option.textContent = opt.text;
-      if (opt.selected) option.selected = true;
-      selectAL.appendChild(option);
+    // Opção "Todos" + ALs de Configurações (assíncrono). AL ativo pré-selecionado.
+    var optTodosG = document.createElement('option');
+    optTodosG.value = '';
+    optTodosG.textContent = 'Todos os AL';
+    selectAL.appendChild(optTodosG);
+    carregarAnosLeonisticos(function(als) {
+      var ativoValorG = '';
+      (als || []).forEach(function(a) { if (a.ativo && !ativoValorG) ativoValorG = a.valor; });
+      (als || []).forEach(function(a) {
+        var opt = document.createElement('option');
+        opt.value = a.valor;
+        opt.textContent = a.label + (a.ativo ? ' (ativo)' : '');
+        if (a.valor === ativoValorG) opt.selected = true;
+        selectAL.appendChild(opt);
+      });
+      if (ativoValorG) { filtroALGabineteAtual = ativoValorG; carregarDirigentesGabinete(); }
     });
     
     controlsDiv.appendChild(btnNovo);
@@ -12092,8 +12096,9 @@ function inicializarSistema() {
     filtroALGabineteAtual = filtroAL;
     
     if (filtroAL) {
+      var alvoALG = normalizarAL(filtroAL);
       dirigentesGabineteFiltrados = dirigentesGabineteLista.filter(function(d) {
-        return d.anoLeonistico === filtroAL || d.ano_leonistico === filtroAL;
+        return normalizarAL(d.anoLeonistico || d.ano_leonistico) === alvoALG;
       });
     } else {
       dirigentesGabineteFiltrados = dirigentesGabineteLista.slice();

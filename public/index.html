@@ -11622,6 +11622,17 @@ function inicializarSistema() {
       callback(window.__alsConfig);
       return;
     }
+    function fallbackObterAlAtual() {
+      google.script.run
+        .withSuccessHandler(function(al) {
+          var v = normalizarAL(al);
+          var arr = v ? [{ valor: v, label: 'AL ' + String(al).trim(), ativo: true }] : [];
+          window.__alsConfig = arr;
+          callback(arr);
+        })
+        .withFailureHandler(function() { callback([]); })
+        .obterAlAtual();
+    }
     google.script.run
       .withSuccessHandler(function(res) {
         var configs = (res && res.sucesso && Array.isArray(res.configuracoes)) ? res.configuracoes : [];
@@ -11631,10 +11642,11 @@ function inicializarSistema() {
             return { valor: normalizarAL(c.al), label: 'AL ' + String(c.al).trim(), ativo: !!c.ativo };
           });
         als.sort(function(a, b) { return b.valor.localeCompare(a.valor); });
+        if (!als.length) { fallbackObterAlAtual(); return; }
         window.__alsConfig = als;
         callback(als);
       })
-      .withFailureHandler(function() { callback([]); })
+      .withFailureHandler(function() { fallbackObterAlAtual(); })
       .listarConfiguracoes();
   }
 

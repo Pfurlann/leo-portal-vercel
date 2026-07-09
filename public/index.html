@@ -11729,20 +11729,25 @@ function inicializarSistema() {
     selectAL.className = 'form-control';
     selectAL.style.cssText = 'width: 140px; height: 40px; border: 1px solid #dee2e6; border-radius: 8px; padding: 8px 32px 8px 12px; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23495057\' d=\'M6 9L1 4h10z\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; cursor: pointer;';
     selectAL.onchange = aplicarFiltroALDiretoria;
-    const optionsAL = [
-      { value: '', text: 'Todos os AL' },
-      { value: '2024-2025', text: 'AL 2024-2025' },
-      { value: '2025-2026', text: 'AL 2025-2026', selected: true },
-      { value: '2026-2027', text: 'AL 2026-2027' }
-    ];
-    optionsAL.forEach(opt => {
-      const option = document.createElement('option');
-      option.value = opt.value;
-      option.textContent = opt.text;
-      if (opt.selected) option.selected = true;
-      selectAL.appendChild(option);
-    });
+    // Opção "Todos" + ALs de Configurações (assíncrono). AL ativo pré-selecionado.
+    var optTodos = document.createElement('option');
+    optTodos.value = '';
+    optTodos.textContent = 'Todos os AL';
+    selectAL.appendChild(optTodos);
     controlsDiv.appendChild(selectAL);
+    carregarAnosLeonisticos(function(als) {
+      var ativoValor = '';
+      (als || []).forEach(function(a) { if (a.ativo && !ativoValor) ativoValor = a.valor; });
+      (als || []).forEach(function(a) {
+        var opt = document.createElement('option');
+        opt.value = a.valor;
+        opt.textContent = a.label + (a.ativo ? ' (ativo)' : '');
+        if (a.valor === ativoValor) opt.selected = true;
+        selectAL.appendChild(opt);
+      });
+      // Recarrega a lista já filtrada pelo AL ativo, se houver
+      if (ativoValor) { filtroALAtual = ativoValor; carregarDirigentes(); }
+    });
     
     // Filtro de clubes (apenas para acesso distrital)
     if (isAcessoDistrital) {
@@ -11844,8 +11849,9 @@ function inicializarSistema() {
     
     // Aplicar filtro de AL
     if (filtroALAtual) {
+      var alvoAL = normalizarAL(filtroALAtual);
       filtrados = filtrados.filter(function(d) {
-        return d.anoLeonistico === filtroALAtual || d.ano_leonistico === filtroALAtual;
+        return normalizarAL(d.anoLeonistico || d.ano_leonistico) === alvoAL;
       });
     }
     
@@ -12492,10 +12498,7 @@ function inicializarSistema() {
         }
         
         const cargoValue = dirigente ? escapeHtmlAttr(String(dirigente.cargo || '')) : '';
-        const al2024Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2024-2025' ? 'selected' : '';
-        const al2025Selected = !dirigente || (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2025-2026' ? 'selected' : '';
-        const al2026Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2026-2027' ? 'selected' : '';
-        
+
         const modalHTML = '<div class="modal-overlay" id="modalDirigente" onclick="if(event.target.id === &quot;modalDirigente&quot;) fecharModalDirigente()">' +
           '<div class="modal-content" onclick="event.stopPropagation()">' +
           '<div class="modal-header">' +
@@ -12515,11 +12518,7 @@ function inicializarSistema() {
           '</div>' +
           '<div class="form-group">' +
           '<label>Ano Leoístico <span style="color: red;">*</span></label>' +
-          '<select id="dirigente-al" required>' +
-          '<option value="2024-2025" ' + al2024Selected + '>AL 2024-2025</option>' +
-          '<option value="2025-2026" ' + al2025Selected + '>AL 2025-2026</option>' +
-          '<option value="2026-2027" ' + al2026Selected + '>AL 2026-2027</option>' +
-          '</select>' +
+          '<select id="dirigente-al" required></select>' +
           '</div>' +
           '<div class="form-group">' +
           '<label>Foto</label>' +
@@ -12542,7 +12541,7 @@ function inicializarSistema() {
         try {
           document.body.insertAdjacentHTML('beforeend', modalHTML);
           document.body.style.overflow = 'hidden';
-          
+
           setTimeout(function() {
             const rD = obterRootModalDirigente();
             const formEl = rD && rD.querySelector('#formDirigente');
@@ -12550,7 +12549,14 @@ function inicializarSistema() {
               formEl.addEventListener('submit', function(ev) { ev.preventDefault(); return false; });
             }
           }, 10);
-          
+
+          var _alAtual = dirigente ? (dirigente.anoLeonistico || dirigente.ano_leonistico) : '';
+          carregarAnosLeonisticos(function(als) {
+            var rSel = obterRootModalDirigente();
+            var selAlEl = rSel && rSel.querySelector('#dirigente-al');
+            construirOpcoesALSelect(selAlEl, als, _alAtual);
+          });
+
           // Armazenar dados do dirigente em variável global se for edição
           if (isEdicao && dirigente) {
             window.__dirigenteEditando = dirigente;
@@ -12579,10 +12585,7 @@ function inicializarSistema() {
       } catch (e) {}
     }
     const cargoValue = dirigente ? escapeHtmlAttr(String(dirigente.cargo || '')) : '';
-    const al2024Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2024-2025' ? 'selected' : '';
-    const al2025Selected = !dirigente || (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2025-2026' ? 'selected' : '';
-    const al2026Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2026-2027' ? 'selected' : '';
-    
+
     let clubesOptionsHtml = '<option value="">Selecione o clube</option>';
     (clubes || []).forEach(function(c) {
       const idStr = String(c.id || '').trim();
@@ -12605,10 +12608,7 @@ function inicializarSistema() {
       '<div class="form-group"><label>Cargo <span style="color:red;">*</span></label>' +
       '<input type="text" id="dirigente-cargo" value="' + cargoValue + '" required placeholder="Ex: Presidente, Secretário"></div>' +
       '<div class="form-group"><label>Ano Leonístico <span style="color:red;">*</span></label>' +
-      '<select id="dirigente-al" required>' +
-      '<option value="2024-2025" ' + al2024Selected + '>AL 2024-2025</option>' +
-      '<option value="2025-2026" ' + al2025Selected + '>AL 2025-2026</option>' +
-      '<option value="2026-2027" ' + al2026Selected + '>AL 2026-2027</option></select></div>' +
+      '<select id="dirigente-al" required></select></div>' +
       '<div class="form-group"><label>Foto</label>' +
       '<input type="file" id="dirigente-foto" accept="image/png" onchange="previewFotoDirigente(event)">' +
       '<div id="dirigente-foto-preview">' + fotoHtml + '</div></div>' +
@@ -12621,7 +12621,13 @@ function inicializarSistema() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     document.body.style.overflow = 'hidden';
     window.__dirigenteEditando = isEdicao && dirigente ? dirigente : null;
-    
+
+    var _alGab = dirigente ? (dirigente.anoLeonistico || dirigente.ano_leonistico) : '';
+    carregarAnosLeonisticos(function(als) {
+      var rG2 = obterRootModalDirigente();
+      construirOpcoesALSelect(rG2 && rG2.querySelector('#dirigente-al'), als, _alGab);
+    });
+
     var rG = obterRootModalDirigente();
     var fFrmG = rG && rG.querySelector('#formDirigente');
     if (fFrmG) fFrmG.addEventListener('submit', function(ev) { ev.preventDefault(); return false; });
@@ -12733,10 +12739,7 @@ function inicializarSistema() {
     
     const cargoValue = dirigente ? escapeHtmlAttr(String(dirigente.cargo || '')) : '';
     const nomeValue = dirigente ? escapeHtmlAttr(String(dirigente.nome || '')) : '';
-    const al2024Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2024-2025' ? 'selected' : '';
-    const al2025Selected = !dirigente || (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2025-2026' ? 'selected' : '';
-    const al2026Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2026-2027' ? 'selected' : '';
-    
+
     const modalHTML = '<div class="modal-overlay" id="modalDirigente" onclick="if(event.target.id === &quot;modalDirigente&quot;) fecharModalDirigente()">' +
       '<div class="modal-content" onclick="event.stopPropagation()">' +
       '<div class="modal-header">' +
@@ -12757,11 +12760,7 @@ function inicializarSistema() {
       '</div>' +
       '<div class="form-group">' +
       '<label>Ano Leonístico <span style="color: red;">*</span></label>' +
-      '<select id="dirigente-al" required>' +
-      '<option value="2024-2025" ' + al2024Selected + '>AL 2024-2025</option>' +
-      '<option value="2025-2026" ' + al2025Selected + '>AL 2025-2026</option>' +
-      '<option value="2026-2027" ' + al2026Selected + '>AL 2026-2027</option>' +
-      '</select>' +
+      '<select id="dirigente-al" required></select>' +
       '</div>' +
       '<div class="form-group">' +
       '<label>Foto</label>' +
@@ -12792,11 +12791,16 @@ function inicializarSistema() {
       } else {
         window.__dirigenteEditando = null;
       }
+      var _alSem = dirigente ? (dirigente.anoLeonistico || dirigente.ano_leonistico) : '';
+      carregarAnosLeonisticos(function(als) {
+        var rG2 = obterRootModalDirigente();
+        construirOpcoesALSelect(rG2 && rG2.querySelector('#dirigente-al'), als, _alSem);
+      });
     } catch (error) {
       console.error('Erro ao inserir modal:', error);
     }
   }
-  
+
   function previewFotoDirigente(event) {
     const file = event.target.files[0];
     if (!file) return;

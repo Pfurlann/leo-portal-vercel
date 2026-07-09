@@ -13042,31 +13042,133 @@ function inicializarSistema() {
   }
   
   function mostrarModalCadastrarDiretoria(clubeForcado) {
-    // Armazenar o clube se fornecido
     clubeModalAtual = clubeForcado || null;
-    const modalHTML = '<div class="modal-overlay" id="modalCadastrarDiretoria" onclick="if(event.target.id === &quot;modalCadastrarDiretoria&quot;) fecharModalCadastrarDiretoria()">' +
-      '<div class="modal-content" onclick="event.stopPropagation()" style="max-width: 800px;">' +
+    var ehGabinete = clubeForcado === 'Gabinete Distrital';
+    var clubeAlvo = clubeForcado || (usuarioLogado ? usuarioLogado.clube : '') || '';
+    window.__loteEhGabinete = ehGabinete;
+    window.__loteClube = clubeAlvo;
+    window.__loteRowSeq = 0;
+    window.__loteRtmaList = [];
+    window.__loteGabClubes = [];
+    window.__loteGabPessoasPorClube = {};
+
+    var colClube = ehGabinete ? '<th style="text-align:left;padding:8px;">Clube origem</th>' : '';
+    var modalHTML = '<div class="modal-overlay" id="modalCadastrarDiretoria" onclick="if(event.target.id===\'modalCadastrarDiretoria\')fecharModalCadastrarDiretoria()">' +
+      '<div class="modal-content" onclick="event.stopPropagation()" style="max-width:900px;">' +
       '<div class="modal-header">' +
-      '<h3 style="margin: 0;">Cadastrar Diretoria Completa</h3>' +
+      '<h3 style="margin:0;">Cadastrar Diretoria Completa' + (ehGabinete ? ' — Gabinete Distrital' : '') + '</h3>' +
       '<button class="modal-close" onclick="fecharModalCadastrarDiretoria()"><i class="fas fa-xmark"></i></button>' +
       '</div>' +
       '<div class="modal-body">' +
-      '<p>Esta funcionalidade permite cadastrar multiplos dirigentes de uma vez.</p>' +
-      '<p style="color: #6c757d; font-size: 14px;">Em breve...</p>' +
+      '<div class="form-group" style="max-width:220px;">' +
+      '<label>Ano Leoístico <span style="color:red;">*</span></label>' +
+      '<select id="diretoria-lote-al" required></select>' +
+      '</div>' +
+      '<div style="overflow-x:auto;">' +
+      '<table style="width:100%;border-collapse:collapse;">' +
+      '<thead><tr style="border-bottom:1px solid #dee2e6;">' +
+      colClube +
+      '<th style="text-align:left;padding:8px;">Cargo</th>' +
+      '<th style="text-align:left;padding:8px;">Pessoa</th>' +
+      '<th style="text-align:left;padding:8px;">Foto</th>' +
+      '<th style="width:40px;"></th>' +
+      '</tr></thead>' +
+      '<tbody id="diretoria-lote-linhas"></tbody>' +
+      '</table>' +
+      '</div>' +
+      '<button type="button" class="btn-secondary" style="margin-top:12px;" onclick="adicionarLinhaDiretoria()"><i class="fas fa-plus"></i> Adicionar cargo</button>' +
       '</div>' +
       '<div class="modal-footer">' +
-      '<button class="btn-secondary" onclick="fecharModalCadastrarDiretoria()">Fechar</button>' +
+      '<button class="btn-secondary" onclick="fecharModalCadastrarDiretoria()">Cancelar</button>' +
+      '<button class="btn-primary" id="diretoria-lote-salvar" onclick="salvarDiretoriaLote()"><i class="fas fa-save"></i> Salvar Diretoria</button>' +
       '</div>' +
-      '</div>' +
-      '</div>';
+      '</div></div>';
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     document.body.style.overflow = 'hidden';
+
+    // Popular AL
+    carregarAnosLeonisticos(function(als) {
+      construirOpcoesALSelect(document.getElementById('diretoria-lote-al'), als, '');
+    });
+
+    if (ehGabinete) {
+      // Carrega clubes; linhas iniciais = 1 (ver Task 5)
+      google.script.run
+        .withSuccessHandler(function(res) {
+          window.__loteGabClubes = (res && res.sucesso && res.clubes) ? res.clubes : [];
+          adicionarLinhaDiretoria();
+        })
+        .withFailureHandler(function() { window.__loteGabClubes = []; adicionarLinhaDiretoria(); })
+        .listarClubesParaDirigenteGabinete();
+    } else {
+      // Carrega pessoas do clube 1x; linhas iniciais = 3
+      google.script.run
+        .withSuccessHandler(function(pessoas) {
+          window.__loteRtmaList = Array.isArray(pessoas) ? pessoas : [];
+          adicionarLinhaDiretoria();
+          adicionarLinhaDiretoria();
+          adicionarLinhaDiretoria();
+        })
+        .withFailureHandler(function() {
+          window.__loteRtmaList = [];
+          adicionarLinhaDiretoria();
+        })
+        .listarPessoasParaNominataClube(clubeAlvo);
+    }
   }
-  
+
   function fecharModalCadastrarDiretoria() {
-    const modal = document.getElementById('modalCadastrarDiretoria');
+    var modal = document.getElementById('modalCadastrarDiretoria');
     if (modal) modal.remove();
     document.body.style.overflow = '';
+    clubeModalAtual = null;
+  }
+
+  // <option>s de pessoa a partir de window.__loteRtmaList (clube normal).
+  function construirOptionsPessoasLote(selectedIdx) {
+    var html = '<option value="">Selecione a pessoa</option>';
+    var lista = window.__loteRtmaList || [];
+    lista.forEach(function(p, idx) {
+      var sel = (String(selectedIdx) === String(idx)) ? ' selected' : '';
+      html += '<option value="' + idx + '"' + sel + '>' + escapeHtmlContent((p.nome || '') + (p.tipo ? ' (' + p.tipo + ')' : '')) + '</option>';
+    });
+    return html;
+  }
+
+  function removerLinhaDiretoria(rowId) {
+    var tr = document.getElementById('diretoria-lote-row-' + rowId);
+    if (tr) tr.remove();
+  }
+
+  function adicionarLinhaDiretoria() {
+    var tbody = document.getElementById('diretoria-lote-linhas');
+    if (!tbody) return;
+    var rowId = (window.__loteRowSeq = (window.__loteRowSeq || 0) + 1);
+    var ehGab = window.__loteEhGabinete;
+    var tr = document.createElement('tr');
+    tr.id = 'diretoria-lote-row-' + rowId;
+    tr.setAttribute('data-row-id', rowId);
+    tr.style.borderBottom = '1px solid #f1f3f5';
+
+    var celClube = '';
+    if (ehGab) {
+      var clubesOpts = '<option value="">Selecione o clube</option>';
+      (window.__loteGabClubes || []).forEach(function(c) {
+        var idStr = String(c.id || '').trim();
+        var nomeStr = String(c.nome || '').trim();
+        clubesOpts += '<option value="' + escapeHtmlAttr(idStr) + '" data-nome="' + escapeHtmlAttr(nomeStr) + '">' + escapeHtmlContent(nomeStr || '(sem nome)') + '</option>';
+      });
+      celClube = '<td style="padding:8px;"><select class="lote-clube" style="width:180px;" onchange="recarregarPessoasLinhaLote(' + rowId + ')">' + clubesOpts + '</select></td>';
+    }
+
+    var pessoaOpts = ehGab ? '<option value="">Selecione o clube primeiro</option>' : construirOptionsPessoasLote(null);
+    tr.innerHTML =
+      celClube +
+      '<td style="padding:8px;"><input type="text" class="lote-cargo" placeholder="Ex: Presidente" style="width:160px;"></td>' +
+      '<td style="padding:8px;"><select class="lote-pessoa" style="width:220px;">' + pessoaOpts + '</select></td>' +
+      '<td style="padding:8px;"><input type="file" class="lote-foto" accept="image/png" style="width:150px;"></td>' +
+      '<td style="padding:8px;text-align:center;"><button type="button" class="btn-icon" title="Remover" onclick="removerLinhaDiretoria(' + rowId + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:16px;"><i class="fas fa-xmark"></i></button></td>';
+    tbody.appendChild(tr);
   }
 
    // === FUNÇÃO DE TESTE DE COMUNICAÇÃO ===

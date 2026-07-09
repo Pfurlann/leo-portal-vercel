@@ -11608,6 +11608,54 @@ function inicializarSistema() {
   let filtroALAtual = '';
   let clubeModalAtual = null; // Para armazenar o clube quando o modal é aberto (ex: "Gabinete Distrital")
 
+  // === HELPERS DE ANO LEONÍSTICO (fonte: Configurações da secretaria) ===
+  // Config grava AL com barra (2025/2026); nominata usa traço (2025-2026).
+  // Canonical = traço. Normalizamos em toda comparação/persistência.
+  function normalizarAL(x) {
+    return String(x == null ? '' : x).replace(/\//g, '-').trim();
+  }
+
+  // Carrega os ALs cadastrados em Configurações. callback([{valor,label,ativo}]).
+  // valor = normalizado (traço); label = 'AL ' + valor original. Ordena desc.
+  function carregarAnosLeonisticos(callback) {
+    if (Array.isArray(window.__alsConfig) && window.__alsConfig.length) {
+      callback(window.__alsConfig);
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(res) {
+        var configs = (res && res.sucesso && Array.isArray(res.configuracoes)) ? res.configuracoes : [];
+        var als = configs
+          .filter(function(c) { return c && c.al; })
+          .map(function(c) {
+            return { valor: normalizarAL(c.al), label: 'AL ' + String(c.al).trim(), ativo: !!c.ativo };
+          });
+        als.sort(function(a, b) { return b.valor.localeCompare(a.valor); });
+        window.__alsConfig = als;
+        callback(als);
+      })
+      .withFailureHandler(function() { callback([]); })
+      .listarConfiguracoes();
+  }
+
+  // Popula um <select> com as opções de AL. Marca `valorSelecionado` (normalizado)
+  // ou, se vazio, o AL ativo. Não faz fallback aqui — quem chama decide.
+  function construirOpcoesALSelect(selectEl, als, valorSelecionado) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+    var alvo = valorSelecionado ? normalizarAL(valorSelecionado) : '';
+    var ativoValor = '';
+    (als || []).forEach(function(a) { if (a.ativo && !ativoValor) ativoValor = a.valor; });
+    if (!alvo) alvo = ativoValor;
+    (als || []).forEach(function(a) {
+      var opt = document.createElement('option');
+      opt.value = a.valor;
+      opt.textContent = a.label + (a.ativo ? ' (ativo)' : '');
+      if (a.valor === alvo) opt.selected = true;
+      selectEl.appendChild(opt);
+    });
+  }
+
   function carregarModuloDiretoria() {
     console.log('📋 Carregando módulo Diretoria...');
     

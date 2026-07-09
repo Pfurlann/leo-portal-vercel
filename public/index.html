@@ -13076,7 +13076,8 @@ function inicializarSistema() {
     var arrowUri = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23495057' d='M6 9L1 4h10z'/%3E%3C/svg%3E";
     var estilos =
       '<style>' +
-      '#modalCadastrarDiretoria .dl-al-group{max-width:260px;margin-bottom:22px;}' +
+      '#modalCadastrarDiretoria .modal-body{padding:24px 26px;}' +
+      '#modalCadastrarDiretoria .dl-al-group{max-width:260px;margin-bottom:24px;}' +
       '#modalCadastrarDiretoria .dl-al-group label{display:block;font-size:13px;font-weight:600;color:#495057;margin-bottom:6px;}' +
       '#modalCadastrarDiretoria .dl-table{width:100%;border-collapse:collapse;table-layout:fixed;}' +
       '#modalCadastrarDiretoria .dl-table th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a94a6;padding:0 10px 10px;}' +
@@ -13093,7 +13094,7 @@ function inicializarSistema() {
       '#modalCadastrarDiretoria .dl-foto-nome{font-size:12px;color:#8a94a6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}' +
       '#modalCadastrarDiretoria .dl-remover{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0;border:none;background:none;color:#c0392b;cursor:pointer;border-radius:6px;font-size:15px;}' +
       '#modalCadastrarDiretoria .dl-remover:hover{background:#fdecea !important;color:#c0392b;transform:none;box-shadow:none;}' +
-      '#modalCadastrarDiretoria .dl-add{margin-top:16px;}' +
+      '#modalCadastrarDiretoria .dl-add{margin-top:18px;margin-left:0;}' +
       '</style>';
     var colClubeHead = ehGabinete ? '<th>Clube origem</th>' : '';
     var colgroup = ehGabinete
@@ -13108,7 +13109,7 @@ function inicializarSistema() {
       '</div>' +
       '<div class="modal-body">' +
       '<div class="dl-al-group">' +
-      '<label>Ano Leonístico <span style="color:red;">*</span></label>' +
+      '<label>Ano Leoístico <span style="color:red;">*</span></label>' +
       '<select id="diretoria-lote-al" class="dl-field" required></select>' +
       '</div>' +
       '<div style="overflow-x:auto;">' +

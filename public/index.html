@@ -13171,6 +13171,42 @@ function inicializarSistema() {
     tbody.appendChild(tr);
   }
 
+  // Gabinete: recarrega a lista de pessoas da LINHA quando o clube muda.
+  // Cache por clube em window.__loteGabPessoasPorClube. A linha guarda o nome
+  // do clube em data-clube-nome para o salvamento resolver o vínculo pelo índice.
+  function recarregarPessoasLinhaLote(rowId) {
+    var tr = document.getElementById('diretoria-lote-row-' + rowId);
+    if (!tr) return;
+    var selClube = tr.querySelector('.lote-clube');
+    var selPessoa = tr.querySelector('.lote-pessoa');
+    if (!selClube || !selPessoa) return;
+    var opt = selClube.options[selClube.selectedIndex];
+    var clubeNome = opt && opt.getAttribute ? (opt.getAttribute('data-nome') || '') : '';
+    tr.setAttribute('data-clube-nome', clubeNome);
+    if (!clubeNome) {
+      selPessoa.innerHTML = '<option value="">Selecione o clube primeiro</option>';
+      return;
+    }
+    function render(lista) {
+      var html = '<option value="">Selecione o associado</option>';
+      (lista || []).forEach(function(p, idx) {
+        html += '<option value="' + idx + '">' + escapeHtmlContent((p.nome || '') + (p.tipo ? ' (' + p.tipo + ')' : '')) + '</option>';
+      });
+      selPessoa.innerHTML = html;
+    }
+    var cache = window.__loteGabPessoasPorClube[clubeNome];
+    if (cache) { render(cache); return; }
+    selPessoa.innerHTML = '<option value="">Carregando...</option>';
+    google.script.run
+      .withSuccessHandler(function(pessoas) {
+        var arr = Array.isArray(pessoas) ? pessoas : [];
+        window.__loteGabPessoasPorClube[clubeNome] = arr;
+        render(arr);
+      })
+      .withFailureHandler(function() { selPessoa.innerHTML = '<option value="">Erro ao carregar</option>'; })
+      .listarPessoasParaDirigenteGabinete(clubeNome);
+  }
+
    // === FUNÇÃO DE TESTE DE COMUNICAÇÃO ===
   function testarComunicacao() {
     console.log('=== INICIANDO TESTE DE COMUNICAÇÃO ===');

@@ -2817,6 +2817,85 @@
       flex-shrink: 0;
     }
 
+    /* Modal Novo/Editar Dirigente (nominata) */
+    #modalDirigente .modal-content {
+      max-width: 560px;
+      width: 100%;
+    }
+
+    #modalDirigente .modal-header {
+      padding: 24px 28px 20px;
+    }
+
+    #modalDirigente .modal-header h3 {
+      margin: 0;
+      padding-right: 36px;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--brand-ink, #002060);
+      line-height: 1.3;
+    }
+
+    #modalDirigente .modal-body {
+      padding: 8px 28px 24px;
+    }
+
+    #modalDirigente .modal-footer {
+      padding: 20px 28px 24px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      text-align: right;
+    }
+
+    #modalDirigente .form-group {
+      margin-bottom: 22px;
+    }
+
+    #modalDirigente .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    #modalDirigente .form-group select,
+    #modalDirigente .form-group input[type="text"],
+    #modalDirigente .form-group input[type="file"] {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+      background: #fff;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    #modalDirigente .form-group select:focus,
+    #modalDirigente .form-group input[type="text"]:focus {
+      outline: none;
+      border-color: #D90F28;
+      box-shadow: 0 0 0 3px rgba(217, 15, 40, 0.1);
+    }
+
+    #modalDirigente .form-group small {
+      display: block;
+      margin-top: 8px;
+      line-height: 1.5;
+      color: #6c757d;
+      font-size: 13px;
+    }
+
+    #modalDirigente #dirigente-foto-preview {
+      margin-top: 12px;
+    }
+
+    #modalDirigente #dirigente-foto-preview img {
+      max-width: 120px;
+      border-radius: 50%;
+      display: block;
+      border: 2px solid #dee2e6;
+    }
+
     .modal-title-group {
       flex: 1;
       min-width: 0;
@@ -4142,6 +4221,24 @@
 
       .modal-body {
         max-height: calc(92vh - 150px);
+      }
+
+      #modalDirigente .modal-header,
+      #modalDirigente .modal-body,
+      #modalDirigente .modal-footer {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      #modalDirigente .modal-footer {
+        flex-direction: column-reverse;
+        align-items: stretch;
+      }
+
+      #modalDirigente .modal-footer .btn-primary,
+      #modalDirigente .modal-footer .btn-secondary {
+        width: 100%;
+        justify-content: center;
       }
 
       .modal-body-cols {
@@ -12340,7 +12437,7 @@ function inicializarSistema() {
         if (dirigente && (dirigente.linkFoto || dirigente.url_foto)) {
           try {
             const fotoUrl = escapeHtmlAttr(dirigente.linkFoto || dirigente.url_foto);
-            fotoHtml = '<img src="' + fotoUrl + '" style="max-width: 200px; border-radius: 50%;">';
+            fotoHtml = '<img src="' + fotoUrl + '" alt="Foto do dirigente">';
           } catch (e) {
             console.warn('Erro ao processar foto:', e);
           }
@@ -12352,7 +12449,7 @@ function inicializarSistema() {
         const al2026Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2026-2027' ? 'selected' : '';
         
         const modalHTML = '<div class="modal-overlay" id="modalDirigente" onclick="if(event.target.id === &quot;modalDirigente&quot;) fecharModalDirigente()">' +
-          '<div class="modal-content" onclick="event.stopPropagation()" style="max-width: 600px;">' +
+          '<div class="modal-content" onclick="event.stopPropagation()">' +
           '<div class="modal-header">' +
           '<h3 style="margin: 0;">' + escapeHtmlContent(titulo) + '</h3>' +
           '<button type="button" class="modal-close" onclick="fecharModalDirigente()"><i class="fas fa-xmark"></i></button>' +
@@ -12379,7 +12476,7 @@ function inicializarSistema() {
           '<div class="form-group">' +
           '<label>Foto</label>' +
           '<input type="file" id="dirigente-foto" accept="image/png" onchange="previewFotoDirigente(event)">' +
-          '<div id="dirigente-foto-preview" style="margin-top: 10px;">' +
+          '<div id="dirigente-foto-preview">' +
           fotoHtml +
           '</div>' +
           '</div>' +
@@ -12430,7 +12527,7 @@ function inicializarSistema() {
     let fotoHtml = '';
     if (dirigente && (dirigente.linkFoto || dirigente.url_foto)) {
       try {
-        fotoHtml = '<img src="' + escapeHtmlAttr(dirigente.linkFoto || dirigente.url_foto) + '" style="max-width: 200px; border-radius: 50%;">';
+        fotoHtml = '<img src="' + escapeHtmlAttr(dirigente.linkFoto || dirigente.url_foto) + '" alt="Foto do dirigente">';
       } catch (e) {}
     }
     const cargoValue = dirigente ? escapeHtmlAttr(String(dirigente.cargo || '')) : '';
@@ -12447,7 +12544,7 @@ function inicializarSistema() {
     });
     
     const modalHTML = '<div class="modal-overlay" id="modalDirigente" onclick="if(event.target.id===\'modalDirigente\')fecharModalDirigente()">' +
-      '<div class="modal-content" onclick="event.stopPropagation()" style="max-width: 600px;">' +
+      '<div class="modal-content" onclick="event.stopPropagation()">' +
       '<div class="modal-header"><h3 style="margin:0;">' + escapeHtmlContent(titulo) + '</h3>' +
       '<button type="button" class="modal-close" onclick="fecharModalDirigente()"><i class="fas fa-xmark"></i></button></div>' +
       '<div class="modal-body"><form id="formDirigente" onsubmit="return false;" novalidate>' +
@@ -12466,7 +12563,7 @@ function inicializarSistema() {
       '<option value="2026-2027" ' + al2026Selected + '>AL 2026-2027</option></select></div>' +
       '<div class="form-group"><label>Foto</label>' +
       '<input type="file" id="dirigente-foto" accept="image/png" onchange="previewFotoDirigente(event)">' +
-      '<div id="dirigente-foto-preview" style="margin-top:10px;">' + fotoHtml + '</div></div>' +
+      '<div id="dirigente-foto-preview">' + fotoHtml + '</div></div>' +
       '</form></div>' +
       '<div class="modal-footer">' +
       '<button type="button" class="btn-secondary" onclick="fecharModalDirigente()">Cancelar</button>' +
@@ -12580,7 +12677,7 @@ function inicializarSistema() {
     if (dirigente && (dirigente.linkFoto || dirigente.url_foto)) {
       try {
         const fotoUrl = escapeHtmlAttr(String(dirigente.linkFoto || dirigente.url_foto));
-        fotoHtml = '<img src="' + fotoUrl + '" style="max-width: 200px; border-radius: 50%;">';
+        fotoHtml = '<img src="' + fotoUrl + '" alt="Foto do dirigente">';
       } catch (e) {
         console.warn('Erro ao processar foto:', e);
       }
@@ -12593,7 +12690,7 @@ function inicializarSistema() {
     const al2026Selected = dirigente && (dirigente.anoLeonistico || dirigente.ano_leonistico) === '2026-2027' ? 'selected' : '';
     
     const modalHTML = '<div class="modal-overlay" id="modalDirigente" onclick="if(event.target.id === &quot;modalDirigente&quot;) fecharModalDirigente()">' +
-      '<div class="modal-content" onclick="event.stopPropagation()" style="max-width: 600px;">' +
+      '<div class="modal-content" onclick="event.stopPropagation()">' +
       '<div class="modal-header">' +
       '<h3 style="margin: 0;">' + escapeHtmlContent(titulo) + '</h3>' +
       '<button type="button" class="modal-close" onclick="fecharModalDirigente()"><i class="fas fa-xmark"></i></button>' +
@@ -12675,7 +12772,7 @@ function inicializarSistema() {
         ? root.querySelector('#dirigente-foto-preview')
         : document.getElementById('dirigente-foto-preview');
       if (preview) {
-        preview.innerHTML = '<img src="' + escapeHtmlAttr(e.target.result) + '" style="max-width: 200px; border-radius: 50%; border: 2px solid #dee2e6;">';
+        preview.innerHTML = '<img src="' + escapeHtmlAttr(e.target.result) + '" alt="Pré-visualização da foto">';
       }
     };
     reader.readAsDataURL(file);
@@ -12765,12 +12862,19 @@ function inicializarSistema() {
     });
   }
   
+  /** Cargos que disparam provisionamento automático (espelha determinarTipoAcessoPorCargo + provisionarAcessoPortalAposNominata). */
+  function _cargoTemProvisionAutomatico(cargo) {
+    if (!cargo) return false;
+    var c = String(cargo).toLowerCase().trim();
+    if (c.indexOf('secretari') >= 0 || c.indexOf('secretária') >= 0 || c.indexOf('secretário') >= 0) return true;
+    if ((c.indexOf('diretor') >= 0 || c.indexOf('diretora') >= 0) && c.indexOf('campanha') >= 0) return true;
+    return false;
+  }
+
   function _mensagemAposProvisionDirigente(resultado) {
     var pr = resultado && resultado.provisionAcesso;
     if (!pr) return '';
-    if (pr.ignorado) {
-      return '\n\n' + 'Acesso automático ao portal só é criado para Secretário(ia) e Diretor(a) de Campanhas (nome do cargo com essas palavras).';
-    }
+    if (pr.ignorado) return '';
     if (pr.emailNaoEncontrado) {
       return '\n\n' + 'Acesso: e-mail não localizado no RTMA (tabela pessoas) para este nome + clube. Confirme o nome exatamente como na ficha, o e-mail preenchido e o nome do clube igual ao do cadastro.';
     }
@@ -12791,6 +12895,11 @@ function inicializarSistema() {
     return isEdicao === true || isEdicao === 'true';
   }
   function _aposGravarNominataChamarProvision(msgBase, clube, cargo, nome, al, vinculo, fecharEListar) {
+    if (!_cargoTemProvisionAutomatico(cargo)) {
+      alert(msgBase);
+      fecharEListar();
+      return;
+    }
     if (typeof google === 'undefined' || !google.script || !google.script.run) {
       alert(msgBase);
       fecharEListar();

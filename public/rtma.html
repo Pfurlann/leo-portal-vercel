@@ -1560,6 +1560,12 @@
       color: #e65100;
     }
 
+    .tipo-badge.egresso {
+      background: #f8d7da;
+      border-color: #dc3545;
+      color: #842029;
+    }
+
     .status-indicator {
       width: 7px;
       height: 7px;
@@ -3906,12 +3912,15 @@ function obterTipoHistoricoFrontendIncluindoInativos(pessoa, dataReferencia) {
 
     // Segundo: Verificar se tinha posse no clube na data de referência
     if (dataAssociadoDesde && dataRef >= dataAssociadoDesde) {
-      return completou31Anos ? 'Associado LEO/Leão' : 'Associado LEO';
+      // "LEO/Leão" exige posse no Lions; sem ela, completar 31 = egresso por idade
+      if (completou31Anos) return null;
+      return 'Associado LEO';
     }
     
     // Terceiro: Verificar se tinha início como Pré-LEO na data de referência
     // APENAS se não tem associadoDesde ou se associadoDesde é posterior à data de referência
     if (dataInicioPreLeo && dataRef >= dataInicioPreLeo) {
+      if (completou31Anos) return null; // egresso por idade
       return 'Pré LEO';
     }
     
@@ -4034,18 +4043,22 @@ function obterTipoHistoricoFrontend(pessoa, dataReferencia) {
     
     // Segundo: Verificar se tinha posse no Clube na data de referência
     if (dataAssociadoDesde && dataRef >= dataAssociadoDesde) {
-      // Tem apenas posse no Clube
+      // Regra: "LEO/Leão" exige posse no Lions. Sem posse no Lions, ao completar
+      // 31 anos a pessoa deixa de ser associada ativa (egresso por idade).
       if (completou31Anos) {
-        return 'Associado LEO/Leão';
-      } else {
-        return 'Associado LEO';
+        return null;
       }
+      return 'Associado LEO';
     }
     
     // Terceiro: Verificar se tinha início como Pré-LEO na data de referência
     if (dataInicioPreLeo && dataRef >= dataInicioPreLeo) {
       // Se não tem associadoDesde ou se associadoDesde é posterior à data de referência
       if (!dataAssociadoDesde || dataRef < dataAssociadoDesde) {
+        // Pré-LEO que completa 31 sem posse no Lions também é egresso por idade
+        if (completou31Anos) {
+          return null;
+        }
         return 'Pré LEO';
       }
     }
@@ -4102,6 +4115,30 @@ function verificarSeCompletou31Anos(dataNascimento, dataReferencia) {
     
   } catch (error) {
     console.warn('Erro ao verificar se completou 31 anos:', error);
+    return false;
+  }
+}
+
+/**
+ * Regra de negócio: o tipo "LEO/Leão" só é válido com data de posse no Lions.
+ * Quem completa 31 anos SEM posse no Lions deixa de ser associado ativo
+ * (egresso por idade) e é tratado como inativo em todas as visões.
+ * @param {Object} pessoa - Dados da pessoa
+ * @param {Date} dataReferencia - Data de referência (default: hoje)
+ * @return {boolean} True se é egresso por idade (31+ sem posse no Lions)
+ */
+function egressoPorIdadeSemLions(pessoa, dataReferencia) {
+  try {
+    if (!pessoa) return false;
+    // Tem posse no Lions => é LEO/Leão legítimo, não é egresso
+    if (pessoa.dataPosseLions && stringValida(pessoa.dataPosseLions)) return false;
+    if (!pessoa.dataNascimento || !stringValida(pessoa.dataNascimento)) return false;
+    const nasc = converterDataParaJS(pessoa.dataNascimento);
+    if (!nasc) return false;
+    const ref = dataReferencia ? new Date(dataReferencia) : new Date();
+    return verificarSeCompletou31Anos(nasc, ref);
+  } catch (error) {
+    console.warn('Erro em egressoPorIdadeSemLions:', error);
     return false;
   }
 }
@@ -4262,7 +4299,7 @@ function filtrarPessoasPorPeriodoAnalise(pessoas) {
   // Se não há período de análise definido, retornar apenas pessoas ativas
   if (!periodoAnalise.inicio || !periodoAnalise.fim) {
     console.log('🔍 Filtrando apenas pessoas ativas (sem período definido)');
-    return pessoas.filter(pessoa => pessoa.status === 'Ativo');
+    return pessoas.filter(pessoa => pessoa.status === 'Ativo' && !egressoPorIdadeSemLions(pessoa, new Date()));
   }
   
   console.log('🔍 Filtrando pessoas por período histórico:', periodoAnalise.inicio.toLocaleDateString('pt-BR'), 'até', periodoAnalise.fim.toLocaleDateString('pt-BR'));
@@ -6138,6 +6175,10 @@ function filtrarPessoasLocal() {
     if (filtroMovimentacao !== 'exclusoes' && !mostrarInativos && pessoa.status !== 'Ativo') {
       return false;
     }
+    // Egresso por idade (31+ sem posse no Lions) é tratado como inativo, mesmo com status 'Ativo' no banco
+    if (filtroMovimentacao !== 'exclusoes' && !mostrarInativos && egressoPorIdadeSemLions(pessoa, new Date())) {
+      return false;
+    }
     
     // Filtro de pesquisa por nome
     const nomePessoa = String(pessoa.nome || '').toLowerCase();
@@ -6222,7 +6263,9 @@ function aplicarFiltrosPeriodoLocal() {
     if (filtroMovimentacao !== 'exclusoes' && !mostrarInativos) {
       if (dataFimPeriodoJS) {
         if (!eraAtivoAoFinalDoPeriodo(pessoa, dataFimPeriodoJS)) return false;
-      } else if (pessoa.status !== 'Ativo') {
+        // Egresso por idade na data de referência do período também sai dos ativos
+        if (egressoPorIdadeSemLions(pessoa, dataFimPeriodoJS)) return false;
+      } else if (pessoa.status !== 'Ativo' || egressoPorIdadeSemLions(pessoa, new Date())) {
         return false;
       }
     }
@@ -6709,7 +6752,8 @@ function renderizarPessoasPagina(pessoasParaRenderizar, inicioIndex, totalPagina
     const status = pessoa.status || 'Ativo';
     const cargoNominata = cargosNominataMap.get(`${clube.trim()}|${(pessoa.nome || '').trim()}`) || '';
     const tipoComputado = obterTipoHistoricoFrontend(pessoa, dataEfetiva);
-    let tipo = tipoComputado || tipoAtual;
+    const ehEgressoIdade = egressoPorIdadeSemLions(pessoa, dataEfetiva);
+    let tipo = ehEgressoIdade ? 'Egresso por idade' : (tipoComputado || tipoAtual);
     let isHistorico = false;
     let associadoDesde = '';
     
@@ -6747,6 +6791,7 @@ function renderizarPessoasPagina(pessoasParaRenderizar, inicioIndex, totalPagina
     else if (tipo === 'Associado LEO e LEO/Leão') tipoClass = 'leo-leao';
     else if (tipo === 'Pré LEO') tipoClass = 'pre-leo';
     else if (tipo === 'Associado LEO/Leão') tipoClass = 'apenas-leao';
+    else if (tipo === 'Egresso por idade') tipoClass = 'egresso';
     
     // Adicionar classe histórico se aplicável
     if (isHistorico) tipoClass += ' historico';
@@ -7358,6 +7403,10 @@ function calcularEstatisticasLocal() {
       if (pessoa.status !== 'Ativo') {
         return; // Pular pessoas inativas
       }
+      // Egresso por idade (31+ sem posse no Lions) não conta como associado ativo
+      if (egressoPorIdadeSemLions(pessoa, hoje)) {
+        return;
+      }
       
       // Calcular tipo dinamicamente usando hoje para garantir consistência com os cards
       const tipoComputado = obterTipoHistoricoFrontend(pessoa, hoje);
@@ -7408,7 +7457,9 @@ function calcularEstatisticasLocal() {
         }
         
         // Fallback apenas para pessoas ATIVAS com datas incompletas (não para inativos — null é intencional)
-        if (!tipoHistorico && pessoa.tipo && pessoa.status === 'Ativo') {
+        // Egresso por idade não recebe fallback: null é intencional (tratado como inativo)
+        const dataRefFallback = dataReferencia || (periodoAnalise && periodoAnalise.fim) || null;
+        if (!tipoHistorico && pessoa.tipo && pessoa.status === 'Ativo' && !egressoPorIdadeSemLions(pessoa, dataRefFallback)) {
           tipoHistorico = pessoa.tipo;
         }
       }

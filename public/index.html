@@ -13082,15 +13082,17 @@ function inicializarSistema() {
       '#modalCadastrarDiretoria .dl-table th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a94a6;padding:0 10px 10px;}' +
       '#modalCadastrarDiretoria .dl-table td{padding:9px 10px;vertical-align:middle;border-top:1px solid #f0f2f5;}' +
       '#modalCadastrarDiretoria .dl-table tbody tr:first-child td{border-top:none;}' +
-      '#modalCadastrarDiretoria .dl-field{width:100%;box-sizing:border-box;height:40px;border:1px solid #dee2e6;border-radius:8px;padding:8px 12px;font-size:14px;background:#fff;color:#333;}' +
+      '#modalCadastrarDiretoria .dl-field{width:100%;box-sizing:border-box;height:40px;margin:0;border:1px solid #dee2e6;border-radius:8px;padding:8px 12px;font-size:14px;background:#fff;color:#333;}' +
       '#modalCadastrarDiretoria .dl-field:focus{outline:none;border-color:#4a90d9;box-shadow:0 0 0 3px rgba(74,144,217,.12);}' +
-      "#modalCadastrarDiretoria select.dl-field{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-image:url(\"" + arrowUri + "\");background-repeat:no-repeat;background-position:right 10px center;background-size:12px;padding-right:30px;cursor:pointer;}" +
+      "#modalCadastrarDiretoria select.dl-field{appearance:none !important;-webkit-appearance:none !important;-moz-appearance:none !important;background-image:url(\"" + arrowUri + "\");background-repeat:no-repeat;background-position:right 10px center;background-size:12px;padding-right:30px;cursor:pointer;}" +
+      '#modalCadastrarDiretoria .modal-footer{display:flex;justify-content:flex-end;align-items:center;gap:12px;text-align:right;}' +
+      '#modalCadastrarDiretoria .modal-footer button{margin:0;}' +
       '#modalCadastrarDiretoria .dl-foto{display:flex;align-items:center;gap:8px;min-width:0;}' +
       '#modalCadastrarDiretoria .dl-foto-btn{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border:1px solid #dee2e6;border-radius:8px;background:#f8f9fa;color:#495057;font-size:13px;cursor:pointer;white-space:nowrap;flex:none;}' +
       '#modalCadastrarDiretoria .dl-foto-btn:hover{background:#eef0f2;}' +
       '#modalCadastrarDiretoria .dl-foto-nome{font-size:12px;color:#8a94a6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}' +
-      '#modalCadastrarDiretoria .dl-remover{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;background:none;color:#c0392b;cursor:pointer;border-radius:6px;font-size:15px;}' +
-      '#modalCadastrarDiretoria .dl-remover:hover{background:#fdecea;}' +
+      '#modalCadastrarDiretoria .dl-remover{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:0;border:none;background:none;color:#c0392b;cursor:pointer;border-radius:6px;font-size:15px;}' +
+      '#modalCadastrarDiretoria .dl-remover:hover{background:#fdecea !important;color:#c0392b;transform:none;box-shadow:none;}' +
       '#modalCadastrarDiretoria .dl-add{margin-top:16px;}' +
       '</style>';
     var colClubeHead = ehGabinete ? '<th>Clube origem</th>' : '';

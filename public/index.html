@@ -11691,7 +11691,7 @@ function inicializarSistema() {
     title.appendChild(titleSpan);
     
     const controlsDiv = document.createElement('div');
-    controlsDiv.style.cssText = 'display: flex; gap: 12px; align-items: center; flex-wrap: nowrap;';
+    controlsDiv.style.cssText = 'display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end; margin-left: auto;';
     
     // Botões de cadastro (apenas para acesso não distrital)
     if (!isAcessoDistrital) {
@@ -11727,7 +11727,7 @@ function inicializarSistema() {
     const selectAL = document.createElement('select');
     selectAL.id = 'diretoria-filtro-al';
     selectAL.className = 'form-control';
-    selectAL.style.cssText = 'width: 140px; height: 40px; border: 1px solid #dee2e6; border-radius: 8px; padding: 8px 32px 8px 12px; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23495057\' d=\'M6 9L1 4h10z\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; cursor: pointer;';
+    selectAL.style.cssText = 'min-width: 140px; max-width: 100%; height: 40px; border: 1px solid #dee2e6; border-radius: 8px; padding: 8px 32px 8px 12px; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23495057\' d=\'M6 9L1 4h10z\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; cursor: pointer;';
     selectAL.onchange = aplicarFiltroALDiretoria;
     // Opção "Todos" + ALs de Configurações (assíncrono). AL ativo pré-selecionado.
     var optTodos = document.createElement('option');
@@ -11754,7 +11754,7 @@ function inicializarSistema() {
       const selectClube = document.createElement('select');
       selectClube.id = 'diretoria-filtro-clube';
       selectClube.className = 'form-control';
-      selectClube.style.cssText = 'width: 200px; height: 40px; border: 1px solid #dee2e6; border-radius: 8px; padding: 8px 32px 8px 12px; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23495057\' d=\'M6 9L1 4h10z\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; cursor: pointer;';
+      selectClube.style.cssText = 'min-width: 180px; max-width: 100%; height: 40px; border: 1px solid #dee2e6; border-radius: 8px; padding: 8px 32px 8px 12px; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%23495057\' d=\'M6 9L1 4h10z\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; cursor: pointer;';
       selectClube.onchange = aplicarFiltroClubeDiretoria;
       const optionTodos = document.createElement('option');
       optionTodos.value = '';
@@ -11892,15 +11892,12 @@ function inicializarSistema() {
     const container = document.getElementById('diretoria-grid-container');
     if (!container) return;
     
-    if (dirigentesFiltrados.length === 0) {
-      const mensagem = filtroALAtual ? 'Não há dirigentes cadastrados para o AL selecionado.' : 'Não há dirigentes cadastrados.';
+    if (!dirigentesFiltrados.length) {
+      var alTxt = filtroALAtual ? (' para o AL ' + escapeHtmlContent(filtroALAtual)) : '';
       container.innerHTML = '<div class="empty-state">' +
-        '<div class="empty-icon"><i class="fas fa-user-tie"></i></div>' +
-        '<h3>Nenhum dirigente encontrado</h3>' +
-        '<p>' + escapeHtmlContent(mensagem) + '</p>' +
-        '<button class="btn-primary" onclick="abrirModalNovoDirigente()">' +
-        '<i class="fas fa-plus"></i> Cadastrar Primeiro Dirigente' +
-        '</button>' +
+        '<div class="empty-icon"><i class="fas fa-user-slash"></i></div>' +
+        '<h3>Nenhum dirigente' + alTxt + '</h3>' +
+        '<p>Cadastre a diretoria para começar.</p>' +
         '</div>';
       return;
     }

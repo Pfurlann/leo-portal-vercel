@@ -5095,6 +5095,49 @@
       color: #fff;
     }
 
+    .ranking-filtros {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+      margin-bottom: 20px;
+      background: #fff;
+      padding: 14px 16px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .ranking-filtro {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 190px;
+      flex: 1 1 190px;
+    }
+
+    .ranking-filtro label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #6c757d;
+    }
+
+    .ranking-filtro select {
+      padding: 10px 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 14px;
+      color: #495057;
+      cursor: pointer;
+    }
+
+    .ranking-filtro select:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
     .ranking-resultado {
       background: #fff;
       border-radius: 12px;
@@ -12548,7 +12591,7 @@ function inicializarSistema() {
           '</div>' +
           '<div class="form-group">' +
           '<label>Foto</label>' +
-          '<input type="file" id="dirigente-foto" accept="image/png" onchange="previewFotoDirigente(event)">' +
+          '<input type="file" id="dirigente-foto" accept="' + ACCEPT_FOTO_DIRIGENTE + '" onchange="previewFotoDirigente(event)">' +
           '<div id="dirigente-foto-preview">' +
           fotoHtml +
           '</div>' +
@@ -12636,7 +12679,7 @@ function inicializarSistema() {
       '<div class="form-group"><label>Ano Leonístico <span style="color:red;">*</span></label>' +
       '<select id="dirigente-al" required></select></div>' +
       '<div class="form-group"><label>Foto</label>' +
-      '<input type="file" id="dirigente-foto" accept="image/png" onchange="previewFotoDirigente(event)">' +
+      '<input type="file" id="dirigente-foto" accept="' + ACCEPT_FOTO_DIRIGENTE + '" onchange="previewFotoDirigente(event)">' +
       '<div id="dirigente-foto-preview">' + fotoHtml + '</div></div>' +
       '</form></div>' +
       '<div class="modal-footer">' +
@@ -12790,7 +12833,7 @@ function inicializarSistema() {
       '</div>' +
       '<div class="form-group">' +
       '<label>Foto</label>' +
-      '<input type="file" id="dirigente-foto" accept="image/png" onchange="previewFotoDirigente(event)">' +
+      '<input type="file" id="dirigente-foto" accept="' + ACCEPT_FOTO_DIRIGENTE + '" onchange="previewFotoDirigente(event)">' +
       '<div id="dirigente-foto-preview" style="margin-top: 10px;">' +
       fotoHtml +
       '</div>' +
@@ -12827,16 +12870,29 @@ function inicializarSistema() {
     }
   }
 
+  // Formatos aceitos na foto de dirigente (nominata). Sincronizado com
+  // FOTO_DIRIGENTE_EXTENSAO_POR_MIME em lib/code.js.
+  const FORMATOS_FOTO_DIRIGENTE = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+  const ACCEPT_FOTO_DIRIGENTE = FORMATOS_FOTO_DIRIGENTE.join(',');
+
+  function isFotoDirigentePermitida(file) {
+    if (!file) return false;
+    const tipo = String(file.type || '').toLowerCase();
+    if (tipo) return FORMATOS_FOTO_DIRIGENTE.indexOf(tipo) !== -1;
+    // Alguns navegadores não informam o MIME: cair para a extensão do arquivo.
+    return /\.(png|jpe?g|webp|gif)$/i.test(file.name || '');
+  }
+
   function previewFotoDirigente(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
-    if (file.type !== 'image/png') {
-      alert('Apenas arquivos PNG são permitidos!');
+
+    if (!isFotoDirigentePermitida(file)) {
+      alert('Formato de imagem não permitido! Envie PNG, JPG, WebP ou GIF.');
       event.target.value = '';
       return;
     }
-    
+
     if (file.size > 5 * 1024 * 1024) {
       alert('Arquivo muito grande! Máximo permitido: 5MB');
       event.target.value = '';
@@ -13217,7 +13273,7 @@ function inicializarSistema() {
       '<td><select class="lote-pessoa dl-field">' + pessoaOpts + '</select></td>' +
       '<td><div class="dl-foto">' +
         '<label class="dl-foto-btn"><i class="fas fa-paperclip"></i> Anexar' +
-        '<input type="file" class="lote-foto" accept="image/png" style="display:none" onchange="_loteFotoNome(this)"></label>' +
+        '<input type="file" class="lote-foto" accept="' + ACCEPT_FOTO_DIRIGENTE + '" style="display:none" onchange="_loteFotoNome(this)"></label>' +
         '<span class="dl-foto-nome"></span>' +
       '</div></td>' +
       '<td style="text-align:center;"><button type="button" class="dl-remover" title="Remover cargo" onclick="removerLinhaDiretoria(' + rowId + ')"><i class="fas fa-xmark"></i></button></td>';
@@ -13227,10 +13283,21 @@ function inicializarSistema() {
   // Atualiza o nome do arquivo escolhido ao lado do botão "Anexar" (com reticências via CSS).
   function _loteFotoNome(input) {
     if (!input) return;
+    var arquivo = (input.files && input.files.length > 0) ? input.files[0] : null;
+    if (arquivo && !isFotoDirigentePermitida(arquivo)) {
+      alert('Formato de imagem não permitido! Envie PNG, JPG, WebP ou GIF.');
+      input.value = '';
+      arquivo = null;
+    }
+    if (arquivo && arquivo.size > 5 * 1024 * 1024) {
+      alert('Arquivo muito grande! Máximo permitido: 5MB');
+      input.value = '';
+      arquivo = null;
+    }
     var wrap = input.closest ? input.closest('.dl-foto') : null;
     var span = wrap ? wrap.querySelector('.dl-foto-nome') : null;
     if (!span) return;
-    span.textContent = (input.files && input.files.length > 0) ? input.files[0].name : '';
+    span.textContent = arquivo ? arquivo.name : '';
     if (span.title !== undefined) span.title = span.textContent;
   }
 
@@ -38565,7 +38632,154 @@ function fecharFullscreen() {
    }
 
    // ===== FUNÇÕES DE RANKING DE PARTICIPAÇÃO =====
-   
+
+   // Os quatro módulos de ranking (clube/distrital × atividades/campanhas) usam o
+   // mesmo pipeline: busca os dados brutos uma vez, guarda em cache e recalcula o
+   // ranking no navegador sempre que um filtro muda — sem nova ida ao servidor.
+   const RANKING_MODULOS = {
+     ativ_clube: {
+       kind: 'atividades', isDistrital: false,
+       resultadoId: 'ranking-atividades-resultado'
+     },
+     ativ_distrital: {
+       kind: 'atividades', isDistrital: true,
+       resultadoId: 'ranking-atividades-distrital-resultado'
+     },
+     camp_clube: {
+       kind: 'campanhas', isDistrital: false,
+       resultadoId: 'ranking-campanhas-resultado'
+     },
+     camp_distrital: {
+       kind: 'campanhas', isDistrital: true,
+       resultadoId: 'ranking-campanhas-distrital-resultado'
+     }
+   };
+
+   // escopo -> { tipo, dados }
+   const rankingEstado = {};
+
+   function rankingFiltrosHTML(escopo) {
+     return `
+       <div class="ranking-filtros">
+         <div class="ranking-filtro">
+           <label for="ranking-filtro-al-${escopo}">Ano Leoístico</label>
+           <select id="ranking-filtro-al-${escopo}" onchange="rankingAplicarFiltros('${escopo}')">
+             <option value="">Todos os ALs</option>
+           </select>
+         </div>
+         <div class="ranking-filtro">
+           <label for="ranking-filtro-tipo-${escopo}">Tipo de associação</label>
+           <select id="ranking-filtro-tipo-${escopo}" onchange="rankingAplicarFiltros('${escopo}')">
+             <option value="">Todos os tipos</option>
+           </select>
+         </div>
+       </div>
+     `;
+   }
+
+   function rankingPreencherSelect(id, valores, rotuloTodos) {
+     const select = document.getElementById(id);
+     if (!select) return;
+     const selecionado = select.value;
+     select.innerHTML = `<option value="">${rotuloTodos}</option>` +
+       valores.map(v => `<option value="${escapeHtmlAttr(v)}">${escapeHtmlContent(v)}</option>`).join('');
+     // Mantém a escolha do usuário quando o valor ainda existe nos dados
+     if (selecionado && valores.indexOf(selecionado) !== -1) select.value = selecionado;
+   }
+
+   function rankingPopularFiltros(escopo) {
+     const cfg = RANKING_MODULOS[escopo];
+     const estado = rankingEstado[escopo];
+     if (!cfg || !estado || !estado.dados) return;
+
+     const registros = (cfg.kind === 'atividades' ? estado.dados.atividades : estado.dados.campanhas) || [];
+     const als = Array.from(new Set(registros.map(r => String((r && r.al) || '').trim()).filter(Boolean)))
+       .sort((a, b) => b.localeCompare(a));
+     const tipos = Array.from(new Set((estado.dados.pessoasRTMA || []).map(p => String((p && p.tipo) || '').trim()).filter(Boolean)))
+       .sort((a, b) => a.localeCompare(b));
+
+     rankingPreencherSelect('ranking-filtro-al-' + escopo, als, 'Todos os ALs');
+     rankingPreencherSelect('ranking-filtro-tipo-' + escopo, tipos, 'Todos os tipos');
+   }
+
+   function rankingRenderizar(escopo) {
+     const cfg = RANKING_MODULOS[escopo];
+     const estado = rankingEstado[escopo];
+     if (!cfg || !estado || !estado.dados) return;
+
+     const selectAL = document.getElementById('ranking-filtro-al-' + escopo);
+     const selectTipo = document.getElementById('ranking-filtro-tipo-' + escopo);
+     const alSelecionado = selectAL ? selectAL.value : '';
+     const tipoAssociacao = selectTipo ? selectTipo.value : '';
+
+     // Filtro por tipo de associação atua na lista de pessoas do RTMA:
+     // quem não é do tipo escolhido simplesmente não entra no ranking.
+     let pessoas = estado.dados.pessoasRTMA || [];
+     if (tipoAssociacao) {
+       pessoas = pessoas.filter(p => p && String(p.tipo || '').trim() === tipoAssociacao);
+     }
+
+     let registros = (cfg.kind === 'atividades' ? estado.dados.atividades : estado.dados.campanhas) || [];
+     if (alSelecionado) {
+       registros = registros.filter(r => r && String(r.al || '').trim() === alSelecionado);
+     }
+
+     if (cfg.kind === 'atividades') {
+       const ranking = calcularRankingParticipacaoAtividades(registros, pessoas, estado.tipo, cfg.isDistrital);
+       exibirRankingAtividades(ranking, estado.tipo, cfg.isDistrital, cfg.resultadoId);
+     } else {
+       const ranking = calcularRankingParticipacaoCampanhas(registros, pessoas, estado.tipo, cfg.isDistrital);
+       exibirRankingCampanhas(ranking, estado.tipo, cfg.isDistrital, cfg.resultadoId);
+     }
+   }
+
+   function rankingAplicarFiltros(escopo) {
+     rankingRenderizar(escopo);
+   }
+
+   function rankingCarregar(escopo, tipo) {
+     const cfg = RANKING_MODULOS[escopo];
+     if (!cfg) return;
+
+     const resultadoDiv = document.getElementById(cfg.resultadoId);
+     const estado = rankingEstado[escopo] || (rankingEstado[escopo] = {});
+     estado.tipo = tipo;
+
+     const cacheKey = 'ranking_dados_' + escopo;
+     const cached = _mcGet(cacheKey);
+     if (cached) {
+       estado.dados = cached;
+       rankingPopularFiltros(escopo);
+       rankingRenderizar(escopo);
+       return;
+     }
+
+     if (resultadoDiv) {
+       resultadoDiv.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Calculando ranking...</div></div>';
+     }
+
+     const runner = google.script.run
+       .withSuccessHandler(function(dados) {
+         estado.dados = dados || {};
+         _mcSet(cacheKey, estado.dados, 300000); // 5 min
+         rankingPopularFiltros(escopo);
+         rankingRenderizar(escopo);
+       })
+       .withFailureHandler(function(erro) {
+         console.error(`Erro ao calcular ranking (${escopo}):`, erro);
+         if (resultadoDiv) {
+           resultadoDiv.innerHTML = `<div class="ranking-erro"><i class="fas fa-exclamation-triangle"></i><p>Erro ao calcular ranking: ${erro.message || erro}</p></div>`;
+         }
+       });
+
+     const clubeAlvo = cfg.isDistrital ? null : usuarioLogado.clube;
+     if (cfg.kind === 'atividades') {
+       runner.buscarDadosParaRankingAtividades(clubeAlvo, cfg.isDistrital);
+     } else {
+       runner.buscarDadosParaRankingCampanhas(clubeAlvo, cfg.isDistrital);
+     }
+   }
+
    function carregarModuloRankingAtividades() {
      console.log('Carregando módulo de ranking de atividades...');
      const container = document.getElementById('ranking-atividades-content');
@@ -38573,7 +38787,7 @@ function fecharFullscreen() {
        console.error('Container ranking-atividades-content não encontrado');
        return;
      }
-     
+
      container.innerHTML = `
        <div class="ranking-header">
          <h2><i class="fas fa-trophy"></i> Ranking de Participação em Atividades</h2>
@@ -38587,6 +38801,7 @@ function fecharFullscreen() {
            <i class="fas fa-clock"></i> Por Duração
          </button>
        </div>
+       ${rankingFiltrosHTML('ativ_clube')}
        <div id="ranking-atividades-resultado" class="ranking-resultado">
          <div class="loading">
            <div class="loading-spinner"></div>
@@ -38594,11 +38809,11 @@ function fecharFullscreen() {
          </div>
        </div>
      `;
-     
+
      // Carregar ranking por quantidade por padrão
      calcularRankingAtividades('quantidade');
    }
-   
+
    function carregarModuloRankingCampanhas() {
      console.log('Carregando módulo de ranking de campanhas...');
      const container = document.getElementById('ranking-campanhas-content');
@@ -38606,7 +38821,7 @@ function fecharFullscreen() {
        console.error('Container ranking-campanhas-content não encontrado');
        return;
      }
-     
+
      container.innerHTML = `
        <div class="ranking-header">
          <h2><i class="fas fa-trophy"></i> Ranking de Participação em Campanhas</h2>
@@ -38620,6 +38835,7 @@ function fecharFullscreen() {
            <i class="fas fa-clock"></i> Por Horas Trabalhadas
          </button>
        </div>
+       ${rankingFiltrosHTML('camp_clube')}
        <div id="ranking-campanhas-resultado" class="ranking-resultado">
          <div class="loading">
            <div class="loading-spinner"></div>
@@ -38627,11 +38843,11 @@ function fecharFullscreen() {
          </div>
        </div>
      `;
-     
+
      // Carregar ranking por quantidade por padrão
      calcularRankingCampanhas('quantidade');
    }
-   
+
    function carregarModuloRankingAtividadesDistrital() {
      console.log('Carregando módulo de ranking distrital de atividades...');
      const container = document.getElementById('ranking-atividades-distrital-content');
@@ -38639,7 +38855,7 @@ function fecharFullscreen() {
        console.error('Container ranking-atividades-distrital-content não encontrado');
        return;
      }
-     
+
      container.innerHTML = `
        <div class="ranking-header">
          <h2><i class="fas fa-trophy"></i> Ranking Distrital de Participação em Atividades</h2>
@@ -38653,6 +38869,7 @@ function fecharFullscreen() {
            <i class="fas fa-clock"></i> Por Duração
          </button>
        </div>
+       ${rankingFiltrosHTML('ativ_distrital')}
        <div id="ranking-atividades-distrital-resultado" class="ranking-resultado">
          <div class="loading">
            <div class="loading-spinner"></div>
@@ -38660,11 +38877,11 @@ function fecharFullscreen() {
          </div>
        </div>
      `;
-     
+
      // Carregar ranking por quantidade por padrão (sempre distrital)
      calcularRankingAtividadesDistrital('quantidade');
    }
-   
+
    function carregarModuloRankingCampanhasDistrital() {
      console.log('Carregando módulo de ranking distrital de campanhas...');
      const container = document.getElementById('ranking-campanhas-distrital-content');
@@ -38672,7 +38889,7 @@ function fecharFullscreen() {
        console.error('Container ranking-campanhas-distrital-content não encontrado');
        return;
      }
-     
+
      container.innerHTML = `
        <div class="ranking-header">
          <h2><i class="fas fa-trophy"></i> Ranking Distrital de Participação em Campanhas</h2>
@@ -38686,6 +38903,7 @@ function fecharFullscreen() {
            <i class="fas fa-clock"></i> Por Horas Trabalhadas
          </button>
        </div>
+       ${rankingFiltrosHTML('camp_distrital')}
        <div id="ranking-campanhas-distrital-resultado" class="ranking-resultado">
          <div class="loading">
            <div class="loading-spinner"></div>
@@ -38693,125 +38911,65 @@ function fecharFullscreen() {
          </div>
        </div>
      `;
-     
+
      // Carregar ranking por quantidade por padrão (sempre distrital)
      calcularRankingCampanhasDistrital('quantidade');
    }
-   
+
    function mostrarRankingAtividades(tipo) {
      // Atualizar tabs
      document.querySelectorAll('#ranking-atividades-content .ranking-tab').forEach(tab => {
        tab.classList.remove('active');
      });
      event.target.classList.add('active');
-     
+
      calcularRankingAtividades(tipo);
    }
-   
+
    function mostrarRankingCampanhas(tipo) {
      // Atualizar tabs
      document.querySelectorAll('#ranking-campanhas-content .ranking-tab').forEach(tab => {
        tab.classList.remove('active');
      });
      event.target.classList.add('active');
-     
+
      calcularRankingCampanhas(tipo);
    }
-   
+
    function mostrarRankingAtividadesDistrital(tipo) {
      // Atualizar tabs
      document.querySelectorAll('#ranking-atividades-distrital-content .ranking-tab').forEach(tab => {
        tab.classList.remove('active');
      });
      event.target.classList.add('active');
-     
+
      calcularRankingAtividadesDistrital(tipo);
    }
-   
+
    function mostrarRankingCampanhasDistrital(tipo) {
      // Atualizar tabs
      document.querySelectorAll('#ranking-campanhas-distrital-content .ranking-tab').forEach(tab => {
        tab.classList.remove('active');
      });
      event.target.classList.add('active');
-     
+
      calcularRankingCampanhasDistrital(tipo);
    }
-   
+
    function calcularRankingAtividades(tipo) {
-     const resultadoDiv = document.getElementById('ranking-atividades-resultado');
-     const cacheKey = 'ranking_ativ_clube_' + tipo;
-     const cached = _mcGet(cacheKey);
-     if (cached) { exibirRankingAtividades(cached, tipo, false); return; }
-     resultadoDiv.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Calculando ranking...</div></div>';
-     google.script.run
-       .withSuccessHandler(function(dados) {
-         const ranking = calcularRankingParticipacaoAtividades(dados.atividades || [], dados.pessoasRTMA || [], tipo, false);
-         _mcSet(cacheKey, ranking, 300000); // 5 min
-         exibirRankingAtividades(ranking, tipo, false);
-       })
-       .withFailureHandler(function(erro) {
-         console.error('Erro ao calcular ranking de atividades:', erro);
-         resultadoDiv.innerHTML = `<div class="ranking-erro"><i class="fas fa-exclamation-triangle"></i><p>Erro ao calcular ranking: ${erro.message || erro}</p></div>`;
-       })
-       .buscarDadosParaRankingAtividades(usuarioLogado.clube, false);
+     rankingCarregar('ativ_clube', tipo);
    }
-   
+
    function calcularRankingAtividadesDistrital(tipo) {
-     const resultadoDiv = document.getElementById('ranking-atividades-distrital-resultado');
-     const cacheKey = 'ranking_ativ_distrital_' + tipo;
-     const cached = _mcGet(cacheKey);
-     if (cached) { exibirRankingAtividades(cached, tipo, true, 'ranking-atividades-distrital-resultado'); return; }
-     resultadoDiv.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Calculando ranking...</div></div>';
-     google.script.run
-       .withSuccessHandler(function(dados) {
-         const ranking = calcularRankingParticipacaoAtividades(dados.atividades || [], dados.pessoasRTMA || [], tipo, true);
-         _mcSet(cacheKey, ranking, 300000); // 5 min
-         exibirRankingAtividades(ranking, tipo, true, 'ranking-atividades-distrital-resultado');
-       })
-       .withFailureHandler(function(erro) {
-         console.error('Erro ao calcular ranking distrital de atividades:', erro);
-         resultadoDiv.innerHTML = `<div class="ranking-erro"><i class="fas fa-exclamation-triangle"></i><p>Erro ao calcular ranking: ${erro.message || erro}</p></div>`;
-       })
-       .buscarDadosParaRankingAtividades(null, true);
+     rankingCarregar('ativ_distrital', tipo);
    }
 
    function calcularRankingCampanhas(tipo) {
-     const resultadoDiv = document.getElementById('ranking-campanhas-resultado');
-     const cacheKey = 'ranking_camp_clube_' + tipo;
-     const cached = _mcGet(cacheKey);
-     if (cached) { exibirRankingCampanhas(cached, tipo, false); return; }
-     resultadoDiv.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Calculando ranking...</div></div>';
-     google.script.run
-       .withSuccessHandler(function(dados) {
-         const ranking = calcularRankingParticipacaoCampanhas(dados.campanhas || [], dados.pessoasRTMA || [], tipo, false);
-         _mcSet(cacheKey, ranking, 300000); // 5 min
-         exibirRankingCampanhas(ranking, tipo, false);
-       })
-       .withFailureHandler(function(erro) {
-         console.error('Erro ao calcular ranking de campanhas:', erro);
-         resultadoDiv.innerHTML = `<div class="ranking-erro"><i class="fas fa-exclamation-triangle"></i><p>Erro ao calcular ranking: ${erro.message || erro}</p></div>`;
-       })
-       .buscarDadosParaRankingCampanhas(usuarioLogado.clube, false);
+     rankingCarregar('camp_clube', tipo);
    }
 
    function calcularRankingCampanhasDistrital(tipo) {
-     const resultadoDiv = document.getElementById('ranking-campanhas-distrital-resultado');
-     const cacheKey = 'ranking_camp_distrital_' + tipo;
-     const cached = _mcGet(cacheKey);
-     if (cached) { exibirRankingCampanhas(cached, tipo, true, 'ranking-campanhas-distrital-resultado'); return; }
-     resultadoDiv.innerHTML = '<div class="loading"><div class="loading-spinner"></div><div>Calculando ranking...</div></div>';
-     google.script.run
-       .withSuccessHandler(function(dados) {
-         const ranking = calcularRankingParticipacaoCampanhas(dados.campanhas || [], dados.pessoasRTMA || [], tipo, true);
-         _mcSet(cacheKey, ranking, 300000); // 5 min
-         exibirRankingCampanhas(ranking, tipo, true, 'ranking-campanhas-distrital-resultado');
-       })
-       .withFailureHandler(function(erro) {
-         console.error('Erro ao calcular ranking distrital de campanhas:', erro);
-         resultadoDiv.innerHTML = `<div class="ranking-erro"><i class="fas fa-exclamation-triangle"></i><p>Erro ao calcular ranking: ${erro.message || erro}</p></div>`;
-       })
-       .buscarDadosParaRankingCampanhas(null, true);
+     rankingCarregar('camp_distrital', tipo);
    }
    
    function calcularRankingParticipacaoAtividades(atividades, pessoasRTMA, tipo, isDistrital = false) {

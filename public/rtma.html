@@ -5368,9 +5368,12 @@ function configurarInterfaceClube() {
     btnNovoAmigo.style.display = 'flex';
   }
 
+  // Clube gera os relatórios de pessoas restritos ao próprio clube
+  // (só Situação Atual e RTMA Detalhado; o backend rejeita os demais tipos).
   const btnRelatorioPessoasDistrito = document.getElementById('btnRelatorioPessoasDistrito');
   if (btnRelatorioPessoasDistrito) {
-    btnRelatorioPessoasDistrito.style.display = 'none';
+    btnRelatorioPessoasDistrito.style.display = 'flex';
+    btnRelatorioPessoasDistrito.title = 'Relatórios do clube: situação atual e RTMA detalhado';
   }
 
   const filtroClube = document.querySelector('.filtro-clube');
@@ -10380,21 +10383,53 @@ function criarDownloadXLSXDetalhado(dadosRelatorio) {
 }
 
 function abrirRelatorioDistrito() {
-  console.log('📊 Abrindo modal de relatório do distrito');
-  
+  // Distrito vê todos os tipos de relatório e todos os clubes.
+  // Clube/região veem só Situação Atual e RTMA Detalhado, restritos ao próprio escopo.
+  const ehDistrito = !!(usuarioLogado && usuarioLogado.isDistrito);
+  console.log('📊 Abrindo modal de relatório de pessoas', { ehDistrito });
+
   const jaAberto = document.getElementById('modalRelatorioDistrito');
   if (jaAberto) jaAberto.remove();
-  
+
+  const nomeClubeSeguro = String((usuarioLogado && usuarioLogado.clube) || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const tituloModal = ehDistrito ? 'Relatório de Pessoas por Clube' : 'Relatório de Pessoas do Clube';
+  const introModal = ehDistrito
+    ? 'Este relatório irá gerar um arquivo Excel com o total de pessoas por clube, organizadas por tipo de associação.'
+    : `Este relatório irá gerar um arquivo Excel com as pessoas do clube ${nomeClubeSeguro}, organizadas por tipo de associação.`;
+
+  const opcoesDistritoHTML = !ehDistrito ? '' : `
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+              <input type="radio" id="relatorioAssociadosMasterSenior" name="tipoRelatorio" value="associados_master_senior" onchange="toggleDataReferencia()">
+              <label for="relatorioAssociadosMasterSenior" style="margin: 0; font-weight: 500;">
+                🏅 Associados LEO ativos — Master / Senior (uma aba, data de referência)
+              </label>
+            </div>
+            <div style="font-size: 12px; color: #6c757d; margin: -8px 0 12px 28px;">
+              Lista quem está <strong>Ativo</strong> hoje no RTMA. O tempo como associado na <strong>data de referência</strong> usa a <strong>data de associação</strong> nesta ordem: posse no clube (Associado desde); se vazia, ingresso Pré-LEO; se ainda vazia, posse no Lions. Senior: mais de 10 anos; Master: 6 a 10 anos; abaixo de 6 na coluna de classificação.
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+              <input type="radio" id="relatorioResumoDM" name="tipoRelatorio" value="resumo_dm" onchange="toggleDataReferencia()">
+              <label for="relatorioResumoDM" style="margin: 0; font-weight: 500;">
+                📈 Resumo Trimestral para DM
+              </label>
+              <button class="btn btn-success" onclick="gerarRelatorioDMDireto()" style="margin-left: 10px; padding: 6px 12px; font-size: 12px;">
+                🚀 Gerar Agora
+              </button>
+            </div>
+  `;
+
   const modalHTML = `
     <div class="modal-overlay" id="modalRelatorioDistrito" style="position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Relatório de Pessoas por Clube</h3>
+          <h3>${tituloModal}</h3>
           <button class="modal-close" onclick="fecharModalRelatorio()">×</button>
         </div>
         <div class="modal-body">
           <div style="text-align: center; margin-bottom: 20px;">
-            <p>Este relatório irá gerar um arquivo Excel com o total de pessoas por clube, organizadas por tipo de associação.</p>
+            <p>${introModal}</p>
             <div style="color: #6c757d; font-size: 14px; margin-top: 10px;">
               <p><strong>Colunas do relatório:</strong></p>
               <ul style="text-align: left; display: inline-block;">
@@ -10408,44 +10443,24 @@ function abrirRelatorioDistrito() {
               </ul>
             </div>
           </div>
-          
+
           <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 15px 0; font-size: 16px; color: #495057;">Opções do Relatório</h4>
-            
+
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
               <input type="radio" id="relatorioAtual" name="tipoRelatorio" value="atual" checked onchange="toggleDataReferencia()">
               <label for="relatorioAtual" style="margin: 0; font-weight: 500;">
                 📊 Situação Atual (apenas pessoas ativas)
               </label>
             </div>
-            
+
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
               <input type="radio" id="relatorioRTMADetalhado" name="tipoRelatorio" value="rtma_detalhado" onchange="toggleDataReferencia()">
               <label for="relatorioRTMADetalhado" style="margin: 0; font-weight: 500;">
                 📋 RTMA Detalhado (todas as colunas, linha por linha)
               </label>
             </div>
-            
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-              <input type="radio" id="relatorioAssociadosMasterSenior" name="tipoRelatorio" value="associados_master_senior" onchange="toggleDataReferencia()">
-              <label for="relatorioAssociadosMasterSenior" style="margin: 0; font-weight: 500;">
-                🏅 Associados LEO ativos — Master / Senior (uma aba, data de referência)
-              </label>
-            </div>
-            <div style="font-size: 12px; color: #6c757d; margin: -8px 0 12px 28px;">
-              Lista quem está <strong>Ativo</strong> hoje no RTMA. O tempo como associado na <strong>data de referência</strong> usa a <strong>data de associação</strong> nesta ordem: posse no clube (Associado desde); se vazia, ingresso Pré-LEO; se ainda vazia, posse no Lions. Senior: mais de 10 anos; Master: 6 a 10 anos; abaixo de 6 na coluna de classificação.
-            </div>
-            
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-              <input type="radio" id="relatorioResumoDM" name="tipoRelatorio" value="resumo_dm" onchange="toggleDataReferencia()">
-              <label for="relatorioResumoDM" style="margin: 0; font-weight: 500;">
-                📈 Resumo Trimestral para DM
-              </label>
-              <button class="btn btn-success" onclick="gerarRelatorioDMDireto()" style="margin-left: 10px; padding: 6px 12px; font-size: 12px;">
-                🚀 Gerar Agora
-              </button>
-            </div>
-            
+${opcoesDistritoHTML}
             <div id="containerResumoDM" style="margin-left: 30px; margin-top: 10px; display: none;">
               <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
                 <h5 style="margin: 0 0 10px 0; color: #1976d2;">📊 Resumo Trimestral para DM</h5>
@@ -11662,7 +11677,8 @@ function criarDownloadXLSX(dadosRelatorio) {
   } else if (dadosRelatorio.pessoas && dadosRelatorio.pessoas.length > 0) {
     nomeArquivo = `Relatorio_Unificado_Pessoas_${new Date().toISOString().slice(0, 10)}.xlsx`;
   } else {
-    nomeArquivo = `relatorio_pessoas_distrito_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const escopoArquivo = (usuarioLogado && usuarioLogado.isDistrito) ? 'distrito' : 'clube';
+    nomeArquivo = `relatorio_pessoas_${escopoArquivo}_${new Date().toISOString().slice(0, 10)}.xlsx`;
   }
     
   aplicarWorkbookSemLinhasDeGrade(wb);

@@ -7651,8 +7651,17 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
           __rtmaModalOpen = !!data.open;
           if (__rtmaModalOpen) {
             try {
+              // Garante que o topo do iframe fique visível na viewport do Portal
+              try {
+                __rtmaIframeEl.scrollIntoView({ block: 'start', behavior: 'auto' });
+              } catch (scrollErr) {
+                try {
+                  const top = window.scrollY + __rtmaIframeEl.getBoundingClientRect().top - 12;
+                  window.scrollTo(0, Math.max(0, top));
+                } catch (e2) {}
+              }
               const rect = __rtmaIframeEl.getBoundingClientRect();
-              const available = window.innerHeight - rect.top - 20; // margem inferior
+              const available = window.innerHeight - Math.max(rect.top, 0) - 20; // margem inferior
               const targetH = Math.max(520, Math.min(available, 900));
               __rtmaIframeEl.style.height = targetH + 'px';
             } catch (e) {

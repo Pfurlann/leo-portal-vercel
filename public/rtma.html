@@ -435,6 +435,27 @@
       box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
     }
 
+    .btn-lista-presenca {
+      background: #495057;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-lista-presenca:hover {
+      background: #343a40;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(73, 80, 87, 0.25);
+    }
+
     .btn-relatorio-dm {
       background: #0d6efd;
       color: white;
@@ -2547,6 +2568,9 @@ window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
           </button>
           <button class="btn-relatorio-distrito" id="btnRelatorioPessoasDistrito" onclick="abrirRelatorioDistrito()" style="display: none;" title="Relatórios do distrito: resumo, RTMA detalhado, Master/Senior, resumo DM">
             <i class="fas fa-file-excel" style="margin-right:8px;"></i> Relatório Excel
+          </button>
+          <button class="btn-lista-presenca" id="btnListaPresenca" onclick="abrirModalListaPresenca()" title="Gerar lista de presença em Word (somente ativos)">
+            <i class="fas fa-file-word" style="margin-right:8px;"></i> Lista de Presença
           </button>
           <button class="btn-novo-membro" id="btnNovoMembro">
             <span>+</span> Cadastrar Novo Membro
@@ -12820,6 +12844,633 @@ function limparFiltroClube() {
   clubeSelecionado = null;
   filtrarPessoas();
   mostrarNotificacao('Filtro de clube removido', 'info');
+}
+
+// === LISTA DE PRESENÇA (Word / ABNT) ===
+const TIPOS_LISTA_PRESENCA = [
+  'Associado LEO',
+  'Associado LEO e LEO/Leão',
+  'Associado LEO/Leão',
+  'Pré LEO'
+];
+
+function normalizarTipoListaPresenca(tipo) {
+  return String(tipo || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function prioridadeTipoListaPresenca(tipo) {
+  const n = normalizarTipoListaPresenca(tipo);
+  if (n === 'associado leo') return 1;
+  if (n === 'associado leo e leo/leao') return 2;
+  if (n === 'associado leo/leao') return 3;
+  if (n.indexOf('pre leo') !== -1) return 4;
+  return 99;
+}
+
+function tipoEhListaPresenca(tipo) {
+  return prioridadeTipoListaPresenca(tipo) <= 4;
+}
+
+// Amigos LEO e Conselheiros vivem em aba/tabela própria (amigos_conselheiros):
+// não têm status nem número de associado, por isso saem em tabela separada.
+function prioridadeAmigoListaPresenca(tipo) {
+  const n = normalizarTipoListaPresenca(tipo);
+  if (n.indexOf('conselheir') !== -1) return 1;
+  if (n.indexOf('amigo') !== -1) return 2;
+  return 99;
+}
+
+function tipoEhAmigoListaPresenca(tipo) {
+  return prioridadeAmigoListaPresenca(tipo) <= 2;
+}
+
+function obterClubeListaPresencaPadrao() {
+  if (clubeSelecionado) return clubeSelecionado;
+  if (usuarioLogado && !usuarioLogado.isDistrito && !usuarioLogado.isRegiao) {
+    return usuarioLogado.clube || '';
+  }
+  return (usuarioLogado && usuarioLogado.clube) ? usuarioLogado.clube : '';
+}
+
+function abrirModalListaPresenca() {
+  if (!usuarioLogado) {
+    mostrarNotificacao('Faça login para gerar a lista de presença', 'erro');
+    return;
+  }
+
+  const existente = document.getElementById('modalListaPresenca');
+  if (existente) existente.remove();
+
+  const precisaEscolherClube = !!(usuarioLogado.isDistrito || usuarioLogado.isRegiao);
+  const clubePadrao = obterClubeListaPresencaPadrao();
+  const hojeISO = new Date().toISOString().slice(0, 10);
+
+  let opcoesClube = '';
+  const selectFonte = document.getElementById('selectClube');
+  if (selectFonte && selectFonte.options.length > 1) {
+    for (let i = 0; i < selectFonte.options.length; i++) {
+      const opt = selectFonte.options[i];
+      if (!opt.value) continue;
+      const selected = opt.value === clubePadrao ? ' selected' : '';
+      opcoesClube += `<option value="${opt.value.replace(/"/g, '&quot;')}"${selected}>${opt.textContent}</option>`;
+    }
+  } else if (clubePadrao) {
+    opcoesClube = `<option value="${String(clubePadrao).replace(/"/g, '&quot;')}" selected>${clubePadrao}</option>`;
+  }
+
+  const campoClube = precisaEscolherClube
+    ? `<div style="margin-bottom: 16px;">
+         <label for="listaPresencaClube" style="display:block;margin-bottom:6px;font-weight:600;color:#212529;">Clube</label>
+         <select id="listaPresencaClube" style="width:100%;padding:10px 12px;border:1px solid #ced4da;border-radius:8px;font-size:14px;background:#fff;">
+           <option value="">Selecione o clube...</option>
+           ${opcoesClube}
+         </select>
+       </div>`
+    : `<input type="hidden" id="listaPresencaClube" value="${String(clubePadrao || '').replace(/"/g, '&quot;')}">
+       <div style="margin-bottom:16px;padding:10px 12px;background:#f8f9fa;border-radius:8px;font-size:13px;color:#495057;">
+         <strong>Clube:</strong> ${clubePadrao || '—'}
+       </div>`;
+
+  const modalHTML = `
+    <div id="modalListaPresenca" class="modal-overlay" style="display:flex;position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;overflow:auto;">
+      <div class="modal-content" style="max-width:480px;width:100%;max-height:min(90vh, 640px);background:#fff;border-radius:12px;overflow:auto;box-shadow:0 20px 56px rgba(0,0,0,0.18);margin:auto;">
+        <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #e9ecef;position:sticky;top:0;background:#fff;z-index:1;">
+          <h3 style="margin:0;font-size:18px;color:#212529;"><i class="fas fa-file-word" style="margin-right:8px;color:#2b579a;"></i>Lista de Presença</h3>
+          <button class="modal-close" onclick="fecharModalListaPresenca()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6c757d;line-height:1;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding:20px;">
+          <p style="margin:0 0 16px;color:#6c757d;font-size:13px;line-height:1.5;">
+            Gera um arquivo Word (.docx) editável com associados ativos do clube, no formato ABNT (A4), com espaço para assinatura manual.
+          </p>
+          ${campoClube}
+          <div style="margin-bottom: 16px;">
+            <label for="listaPresencaAtividade" style="display:block;margin-bottom:6px;font-weight:600;color:#212529;">Nome da atividade</label>
+            <input type="text" id="listaPresencaAtividade" maxlength="180" placeholder="Ex.: Reunião Ordinária de Diretoria" style="width:100%;padding:10px 12px;border:1px solid #ced4da;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label for="listaPresencaData" style="display:block;margin-bottom:6px;font-weight:600;color:#212529;">Data da atividade</label>
+            <input type="date" id="listaPresencaData" value="${hojeISO}" style="width:100%;padding:10px 12px;border:1px solid #ced4da;border-radius:8px;font-size:14px;box-sizing:border-box;">
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;border-top:1px solid #e9ecef;background:#f8f9fa;">
+          <button type="button" onclick="fecharModalListaPresenca()" style="padding:10px 16px;border:1px solid #ced4da;border-radius:8px;background:#fff;color:#495057;cursor:pointer;font-size:14px;font-weight:500;">Cancelar</button>
+          <button type="button" id="btnGerarListaPresenca" onclick="confirmarGerarListaPresenca()" style="padding:10px 16px;border:none;border-radius:8px;background:#2b579a;color:#fff;cursor:pointer;font-size:14px;font-weight:500;">
+            <i class="fas fa-download" style="margin-right:6px;"></i>Gerar Word
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  try { document.documentElement.style.overflow = 'hidden'; } catch (e) {}
+  try { document.body.style.overflow = 'hidden'; } catch (e) {}
+  try { window.scrollTo(0, 0); } catch (e) {}
+  if (typeof __rtmaSetModalOpen === 'function') {
+    try { __rtmaSetModalOpen(true); } catch (e) {}
+  }
+
+  const modalEl = document.getElementById('modalListaPresenca');
+  if (modalEl) {
+    modalEl.addEventListener('click', function(event) {
+      if (event.target.id === 'modalListaPresenca') {
+        fecharModalListaPresenca();
+      }
+    });
+  }
+
+  if (precisaEscolherClube && !opcoesClube) {
+    preencherClubesModalListaPresenca();
+  }
+
+  setTimeout(() => {
+    const input = document.getElementById('listaPresencaAtividade');
+    if (input) input.focus();
+  }, 50);
+}
+
+function preencherClubesModalListaPresenca() {
+  const select = document.getElementById('listaPresencaClube');
+  if (!select || typeof google === 'undefined' || !google.script || !google.script.run) return;
+
+  google.script.run
+    .withSuccessHandler(function(clubes) {
+      if (!select || !Array.isArray(clubes)) return;
+      const atual = select.value;
+      const ordenados = [...clubes].sort((a, b) =>
+        String(a).localeCompare(String(b), 'pt-BR', { sensitivity: 'base' })
+      );
+      select.innerHTML = '<option value="">Selecione o clube...</option>';
+      ordenados.forEach(clube => {
+        const option = document.createElement('option');
+        option.value = clube;
+        option.textContent = clube;
+        if (clube === atual || clube === clubeSelecionado) option.selected = true;
+        select.appendChild(option);
+      });
+    })
+    .withFailureHandler(function() {
+      mostrarNotificacao('Não foi possível carregar a lista de clubes', 'erro');
+    })
+    .obterTodosClubesRTMA();
+}
+
+function fecharModalListaPresenca() {
+  const modal = document.getElementById('modalListaPresenca');
+  if (modal) modal.remove();
+  try { document.documentElement.style.overflow = ''; } catch (e) {}
+  try { document.body.style.overflow = ''; } catch (e) {}
+  if (typeof __rtmaSetModalOpen === 'function') {
+    try { __rtmaSetModalOpen(false); } catch (e) {}
+  }
+}
+
+function formatarDataListaPresencaBR(iso) {
+  if (!iso) return '';
+  const partes = String(iso).split('-');
+  if (partes.length !== 3) return iso;
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+async function obterPessoasListaPresencaDoServidor(clube) {
+  return new Promise((resolve, reject) => {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      reject(new Error('API indisponível'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(resultado) {
+        let lista = [];
+        if (Array.isArray(resultado)) {
+          lista = resultado;
+        } else if (resultado && Array.isArray(resultado.dados)) {
+          lista = resultado.dados;
+        } else if (resultado && Array.isArray(resultado.pessoas)) {
+          lista = resultado.pessoas;
+        }
+        resolve(lista);
+      })
+      .withFailureHandler(function(erro) {
+        reject(erro || new Error('Falha ao buscar pessoas'));
+      })
+      .buscarPessoasRTMA(clube);
+  });
+}
+
+function filtrarOrdenarPessoasListaPresenca(fonte, clube) {
+  const clubeNorm = String(clube || '').trim().toLowerCase();
+  return (Array.isArray(fonte) ? fonte : [])
+    .filter(p => {
+      if (!p) return false;
+      const status = String(p.status || '').trim().toLowerCase();
+      if (status !== 'ativo') return false;
+      if (!tipoEhListaPresenca(p.tipo)) return false;
+      if (clubeNorm && String(p.clube || '').trim().toLowerCase() !== clubeNorm) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const tipoCmp = prioridadeTipoListaPresenca(a.tipo) - prioridadeTipoListaPresenca(b.tipo);
+      if (tipoCmp !== 0) return tipoCmp;
+      return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', {
+        sensitivity: 'base',
+        ignorePunctuation: true
+      });
+    });
+}
+
+function coletarPessoasListaPresenca(clube) {
+  return filtrarOrdenarPessoasListaPresenca(pessoasAtuais, clube);
+}
+
+async function obterAmigosListaPresencaDoServidor(clube) {
+  return new Promise((resolve, reject) => {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      reject(new Error('API indisponível'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(resultado) {
+        let lista = [];
+        if (Array.isArray(resultado)) {
+          lista = resultado;
+        } else if (resultado && Array.isArray(resultado.dados)) {
+          lista = resultado.dados;
+        } else if (resultado && Array.isArray(resultado.amigos)) {
+          lista = resultado.amigos;
+        }
+        resolve(lista);
+      })
+      .withFailureHandler(function(erro) {
+        reject(erro || new Error('Falha ao buscar amigos/conselheiros'));
+      })
+      .buscarAmigosConselheiros(clube, null);
+  });
+}
+
+function filtrarOrdenarAmigosListaPresenca(fonte, clube) {
+  const clubeNorm = String(clube || '').trim().toLowerCase();
+  return (Array.isArray(fonte) ? fonte : [])
+    .filter(a => {
+      if (!a) return false;
+      // Sem filtro de status: a tabela amigos_conselheiros não tem esse campo
+      if (!tipoEhAmigoListaPresenca(a.tipo)) return false;
+      if (clubeNorm && String(a.clube || '').trim().toLowerCase() !== clubeNorm) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const tipoCmp = prioridadeAmigoListaPresenca(a.tipo) - prioridadeAmigoListaPresenca(b.tipo);
+      if (tipoCmp !== 0) return tipoCmp;
+      return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', {
+        sensitivity: 'base',
+        ignorePunctuation: true
+      });
+    });
+}
+
+function coletarAmigosListaPresenca(clube) {
+  const fonte = (typeof amigosAtuais !== 'undefined' && Array.isArray(amigosAtuais)) ? amigosAtuais : [];
+  return filtrarOrdenarAmigosListaPresenca(fonte, clube);
+}
+
+async function carregarBibliotecaDocx() {
+  if (window.__docxLib) return window.__docxLib;
+  const mod = await import('https://cdn.jsdelivr.net/npm/docx@9.5.0/+esm');
+  window.__docxLib = mod;
+  return mod;
+}
+
+function criarCelulaListaPresenca(docx, texto, opts) {
+  const {
+    width,
+    bold = false,
+    align = docx.AlignmentType.LEFT,
+    fill = null
+  } = opts;
+
+  const cellOpts = {
+    width: { size: width, type: docx.WidthType.DXA },
+    borders: {
+      top: { style: docx.BorderStyle.SINGLE, size: 8, color: '000000' },
+      bottom: { style: docx.BorderStyle.SINGLE, size: 8, color: '000000' },
+      left: { style: docx.BorderStyle.SINGLE, size: 8, color: '000000' },
+      right: { style: docx.BorderStyle.SINGLE, size: 8, color: '000000' }
+    },
+    verticalAlign: docx.VerticalAlign.CENTER,
+    margins: {
+      top: 140,
+      bottom: 140,
+      left: 120,
+      right: 120
+    },
+    children: [
+      new docx.Paragraph({
+        alignment: align,
+        spacing: { before: 40, after: 40, line: 276 },
+        children: [
+          new docx.TextRun({
+            text: texto == null ? '' : String(texto),
+            font: 'Times New Roman',
+            size: 24, // 12 pt (ABNT)
+            bold
+          })
+        ]
+      })
+    ]
+  };
+
+  if (fill) {
+    cellOpts.shading = { type: docx.ShadingType.CLEAR, fill };
+  }
+
+  return new docx.TableCell(cellOpts);
+}
+
+async function gerarDocumentoListaPresenca({ clube, nomeAtividade, dataAtividadeISO, pessoas, amigos }) {
+  const docx = await carregarBibliotecaDocx();
+  const CM = 567; // twips ≈ 1 cm
+  const dataBR = formatarDataListaPresencaBR(dataAtividadeISO);
+  const heightRule = (docx.HeightRule && docx.HeightRule.ATLEAST) || 'atLeast';
+  const listaAmigos = Array.isArray(amigos) ? amigos : [];
+
+  // Largura útil A4 com margens ABNT (3 cm esq / 2 cm dir): 16 cm = 9072 DXA
+  const colNome = 2600;
+  const colAssociacao = 2300;
+  const colNumero = 1300;
+  const colAssinatura = 2872;
+  const tableWidth = colNome + colAssociacao + colNumero + colAssinatura;
+
+  const headerRow = new docx.TableRow({
+    tableHeader: true,
+    height: { value: 700, rule: heightRule },
+    children: [
+      criarCelulaListaPresenca(docx, 'Nome', { width: colNome, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' }),
+      criarCelulaListaPresenca(docx, 'Associação', { width: colAssociacao, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' }),
+      criarCelulaListaPresenca(docx, 'Nº Associado', { width: colNumero, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' }),
+      criarCelulaListaPresenca(docx, 'Assinatura', { width: colAssinatura, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' })
+    ]
+  });
+
+  // ~2 cm de altura mínima por linha — folga para assinatura manuscrita (ABNT / legibilidade)
+  const dataRows = pessoas.map(p => new docx.TableRow({
+    height: { value: 1134, rule: heightRule },
+    children: [
+      criarCelulaListaPresenca(docx, p.nome || '', { width: colNome }),
+      criarCelulaListaPresenca(docx, p.tipo || '', { width: colAssociacao, align: docx.AlignmentType.CENTER }),
+      criarCelulaListaPresenca(docx, p.numeroAssociado || '', { width: colNumero, align: docx.AlignmentType.CENTER }),
+      criarCelulaListaPresenca(docx, '', { width: colAssinatura })
+    ]
+  }));
+
+  // Segunda seção: Amigos LEO e Conselheiros (colunas próprias, mesma largura útil de 9072 DXA)
+  const colNomeAmigo = 2600;
+  const colCategoria = 2000;
+  const colLions = 1600;
+  const colAssinaturaAmigo = 2872;
+  const blocoAmigos = [];
+
+  if (listaAmigos.length) {
+    blocoAmigos.push(new docx.Paragraph({
+      alignment: docx.AlignmentType.CENTER,
+      spacing: { before: 360, after: 160 },
+      keepNext: true, // não deixa o subtítulo órfão no fim da página
+      children: [
+        new docx.TextRun({
+          text: 'AMIGOS LEO E CONSELHEIROS',
+          bold: true,
+          font: 'Times New Roman',
+          size: 24
+        })
+      ]
+    }));
+
+    const headerRowAmigos = new docx.TableRow({
+      tableHeader: true,
+      height: { value: 700, rule: heightRule },
+      children: [
+        criarCelulaListaPresenca(docx, 'Nome', { width: colNomeAmigo, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' }),
+        criarCelulaListaPresenca(docx, 'Categoria', { width: colCategoria, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' }),
+        criarCelulaListaPresenca(docx, 'Lions Clube', { width: colLions, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' }),
+        criarCelulaListaPresenca(docx, 'Assinatura', { width: colAssinaturaAmigo, bold: true, align: docx.AlignmentType.CENTER, fill: 'E8E8E8' })
+      ]
+    });
+
+    const dataRowsAmigos = listaAmigos.map(a => new docx.TableRow({
+      height: { value: 1134, rule: heightRule },
+      children: [
+        criarCelulaListaPresenca(docx, a.nome || '', { width: colNomeAmigo }),
+        criarCelulaListaPresenca(docx, a.tipo || '', { width: colCategoria, align: docx.AlignmentType.CENTER }),
+        criarCelulaListaPresenca(docx, a.lionsClube || '', { width: colLions, align: docx.AlignmentType.CENTER }),
+        criarCelulaListaPresenca(docx, '', { width: colAssinaturaAmigo })
+      ]
+    }));
+
+    blocoAmigos.push(new docx.Table({
+      width: { size: colNomeAmigo + colCategoria + colLions + colAssinaturaAmigo, type: docx.WidthType.DXA },
+      columnWidths: [colNomeAmigo, colCategoria, colLions, colAssinaturaAmigo],
+      rows: [headerRowAmigos, ...dataRowsAmigos]
+    }));
+  }
+
+  const rodape = [];
+
+  if (pessoas.length) {
+    rodape.push(new docx.Paragraph({
+      spacing: { before: 280 },
+      children: [
+        new docx.TextRun({
+          text: `Total de associados ativos na lista: ${pessoas.length}`,
+          italics: true,
+          font: 'Times New Roman',
+          size: 20
+        })
+      ]
+    }));
+  }
+
+  if (listaAmigos.length) {
+    rodape.push(new docx.Paragraph({
+      spacing: { before: pessoas.length ? 80 : 280 },
+      children: [
+        new docx.TextRun({
+          text: `Total de Amigos LEO e Conselheiros: ${listaAmigos.length}`,
+          italics: true,
+          font: 'Times New Roman',
+          size: 20
+        })
+      ]
+    }));
+  }
+
+  const doc = new docx.Document({
+    sections: [{
+      properties: {
+        page: {
+          size: {
+            width: 11906,  // A4
+            height: 16838
+          },
+          margin: {
+            top: 3 * CM,
+            bottom: 2 * CM,
+            left: 3 * CM,
+            right: 2 * CM
+          }
+        }
+      },
+      children: [
+        new docx.Paragraph({
+          alignment: docx.AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [
+            new docx.TextRun({
+              text: 'LISTA DE PRESENÇA',
+              bold: true,
+              font: 'Times New Roman',
+              size: 28 // 14 pt
+            })
+          ]
+        }),
+        new docx.Paragraph({
+          alignment: docx.AlignmentType.CENTER,
+          spacing: { after: 120 },
+          children: [
+            new docx.TextRun({
+              text: `Clube: ${clube}`,
+              font: 'Times New Roman',
+              size: 24
+            })
+          ]
+        }),
+        new docx.Paragraph({
+          spacing: { before: 200, after: 80 },
+          children: [
+            new docx.TextRun({ text: 'Atividade: ', bold: true, font: 'Times New Roman', size: 24 }),
+            new docx.TextRun({ text: nomeAtividade, font: 'Times New Roman', size: 24 })
+          ]
+        }),
+        new docx.Paragraph({
+          spacing: { after: 280 },
+          children: [
+            new docx.TextRun({ text: 'Data: ', bold: true, font: 'Times New Roman', size: 24 }),
+            new docx.TextRun({ text: dataBR, font: 'Times New Roman', size: 24 })
+          ]
+        }),
+        ...(pessoas.length ? [new docx.Table({
+          width: { size: tableWidth, type: docx.WidthType.DXA },
+          columnWidths: [colNome, colAssociacao, colNumero, colAssinatura],
+          rows: [headerRow, ...dataRows]
+        })] : []),
+        ...blocoAmigos,
+        ...rodape
+      ]
+    }]
+  });
+
+  return docx.Packer.toBlob(doc);
+}
+
+async function confirmarGerarListaPresenca() {
+  const nomeAtividade = (document.getElementById('listaPresencaAtividade')?.value || '').trim();
+  const dataISO = document.getElementById('listaPresencaData')?.value || '';
+  const clube = (document.getElementById('listaPresencaClube')?.value || '').trim();
+  const btn = document.getElementById('btnGerarListaPresenca');
+
+  if (!clube) {
+    mostrarNotificacao('Selecione o clube para a lista de presença', 'erro');
+    return;
+  }
+  if (!nomeAtividade) {
+    mostrarNotificacao('Informe o nome da atividade', 'erro');
+    document.getElementById('listaPresencaAtividade')?.focus();
+    return;
+  }
+  if (!dataISO) {
+    mostrarNotificacao('Informe a data da atividade', 'erro');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Gerando...';
+  }
+
+  try {
+    // Falha de uma fonte não pode derrubar a outra
+    const [resPessoas, resAmigos] = await Promise.allSettled([
+      obterPessoasListaPresencaDoServidor(clube),
+      obterAmigosListaPresencaDoServidor(clube)
+    ]);
+
+    let pessoas = [];
+    if (resPessoas.status === 'fulfilled') {
+      // Já veio filtrado pelo clube no backend — não refiltrar por nome (evita mismatch de acentuação)
+      pessoas = filtrarOrdenarPessoasListaPresenca(resPessoas.value, null);
+    } else {
+      console.warn('Fallback local para lista de presença (pessoas):', resPessoas.reason);
+      pessoas = coletarPessoasListaPresenca(clube);
+    }
+
+    let amigos = [];
+    let avisoAmigos = false;
+    if (resAmigos.status === 'fulfilled') {
+      amigos = filtrarOrdenarAmigosListaPresenca(resAmigos.value, null);
+    } else {
+      console.warn('Fallback local para lista de presença (amigos):', resAmigos.reason);
+      amigos = coletarAmigosListaPresenca(clube);
+      if (!amigos.length) avisoAmigos = true;
+    }
+
+    if (!pessoas.length && !amigos.length) {
+      mostrarNotificacao('Nenhum associado ativo, Amigo LEO ou Conselheiro encontrado para este clube', 'erro');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-download" style="margin-right:6px;"></i>Gerar Word';
+      }
+      return;
+    }
+
+    const blob = await gerarDocumentoListaPresenca({
+      clube,
+      nomeAtividade,
+      dataAtividadeISO: dataISO,
+      pessoas,
+      amigos
+    });
+
+    const dataBR = formatarDataListaPresencaBR(dataISO).replace(/\//g, '-');
+    const nomeArquivo = `Lista_Presenca_${clube.replace(/[^\wÀ-ÿ]+/g, '_')}_${dataBR}.docx`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+    fecharModalListaPresenca();
+
+    const partesResumo = [`${pessoas.length} associado(s)`];
+    if (amigos.length) partesResumo.push(`${amigos.length} convidado(s)`);
+    mostrarNotificacao(`Lista de presença gerada com ${partesResumo.join(' e ')}`, 'sucesso');
+
+    if (avisoAmigos) {
+      mostrarNotificacao('Não foi possível carregar Amigos LEO e Conselheiros — lista gerada só com associados', 'aviso');
+    }
+  } catch (erro) {
+    console.error('Erro ao gerar lista de presença:', erro);
+    mostrarNotificacao('Erro ao gerar o Word: ' + (erro.message || erro), 'erro');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-download" style="margin-right:6px;"></i>Gerar Word';
+    }
+  }
 }
 
 // Função wrapper para obter todos os clubes (chamada do backend)

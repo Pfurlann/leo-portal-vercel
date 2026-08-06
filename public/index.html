@@ -2907,6 +2907,11 @@
       margin: 2px 0 0;
     }
 
+    /* Sem o badge de status, o título encostaria no × (que é absolute) */
+    .modal-header.sem-status-badge .modal-title-group {
+      padding-right: 40px;
+    }
+
     .modal-status-badge {
       font-size: 11px;
       font-weight: 600;
@@ -32525,7 +32530,7 @@ ${erro.message || erro}`);
        
        const clubeAtividade = atividade.clube || (typeof usuarioLogado !== 'undefined' && usuarioLogado.clube) || '';
        return `
-         <div class="item-card ${atividade.marcadoCorrigido ? 'corrigido' : ''}${alertaAtiv.classExtra}" data-atividade-id="${atividade.id}" data-clube="${escapeHtmlAttr(clubeAtividade)}" onclick="visualizarAtividade(this.dataset.atividadeId)">
+         <div class="item-card ${(atividade.marcadoCorrigido && podeMarcarAtividadeComoCorrigida()) ? 'corrigido' : ''}${alertaAtiv.classExtra}" data-atividade-id="${atividade.id}" data-clube="${escapeHtmlAttr(clubeAtividade)}" onclick="visualizarAtividade(this.dataset.atividadeId)">
            <div class="item-actions">
              <button class="action-btn view-files-btn" data-atividade-id="${atividade.id}" onclick="event.stopPropagation(); visualizarArquivosAtividade(this.dataset.atividadeId)" title="Ver Arquivos"><i class="fas fa-folder"></i></button>
              <button class="action-btn edit-btn" data-atividade-id="${atividade.id}" onclick="event.stopPropagation(); editarAtividade(this.dataset.atividadeId)" title="Editar"><i class="fas fa-edit"></i></button>
@@ -34351,8 +34356,12 @@ ${erro.message || erro}`);
        `;
      }
 
+     // Mesmo critério da atividade: badge de revisão só para quem revisa
      const campStatusClass = campanha.marcadoCorrigido ? 'corrigido' : 'pendente';
      const campStatusLabel = campanha.marcadoCorrigido ? '✓ Corrigido' : '⚠ Pendente';
+     const campStatusBadgeHtml = podeMarcarAtividadeComoCorrigida()
+       ? `<span class="modal-status-badge ${campStatusClass}">${campStatusLabel}</span>`
+       : '';
      const totalPartCampanha = (parseInt(campanha.qtdPresentes) || 0) + (parseInt(campanha.qtdPreLeos) || 0) + (parseInt(campanha.qtdAmigosConselheiros) || 0) + (parseInt(campanha.qtdLeoesParticipantes) || 0);
 
      const modalHtml = `
@@ -34363,11 +34372,11 @@ ${erro.message || erro}`);
              <button class="modal-nav-btn modal-nav-next" onclick="navegarCampanha(1)" title="Próxima campanha">&#8250;</button>
            ` : ''}
 
-           <div class="modal-header">
+           <div class="modal-header${campStatusBadgeHtml ? '' : ' sem-status-badge'}">
              <div class="modal-title-group">
                <h2 class="modal-title">${campanha.titulo}</h2>
              </div>
-             <span class="modal-status-badge ${campStatusClass}">${campStatusLabel}</span>
+             ${campStatusBadgeHtml}
              <button class="modal-close" onclick="fecharModal()">&times;</button>
            </div>
 
@@ -34673,8 +34682,13 @@ ${erro.message || erro}`);
        + (parseInt(atividade.qtdAmigosConselheiros) || 0)
        + (parseInt(atividade.outrosLions) || 0);
 
+     // Status de revisão é interno do distrito: o clube não deve ver que sua
+     // atividade ainda não foi corrigida (mesmo gate do checkbox nos cards).
      const statusClass = atividade.marcadoCorrigido ? 'corrigido' : 'pendente';
      const statusLabel = atividade.marcadoCorrigido ? '✓ Corrigido' : '⚠ Pendente';
+     const statusBadgeHtml = podeMarcarAtividadeComoCorrigida()
+       ? `<span class="modal-status-badge ${statusClass}">${statusLabel}</span>`
+       : '';
 
      const modalHtml = `
        <div class="modal-overlay" onclick="fecharModal(event)">
@@ -34684,11 +34698,11 @@ ${erro.message || erro}`);
              <button class="modal-nav-btn modal-nav-next" onclick="navegarAtividade(1)" title="Próxima atividade">&#8250;</button>
            ` : ''}
 
-           <div class="modal-header">
+           <div class="modal-header${statusBadgeHtml ? '' : ' sem-status-badge'}">
              <div class="modal-title-group">
                <h2 class="modal-title">${atividade.titulo}</h2>
              </div>
-             <span class="modal-status-badge ${statusClass}">${statusLabel}</span>
+             ${statusBadgeHtml}
              <button class="modal-close" onclick="fecharModal()">&times;</button>
            </div>
 

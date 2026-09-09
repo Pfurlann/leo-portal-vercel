@@ -6077,6 +6077,7 @@ window.__SUPABASE_URL__ = 'https://bqkttaflhtsdkamgscnf.supabase.co';
 window.__SUPABASE_ANON_KEY__ = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3R0YWZsaHRzZGthbWdzY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxOTA4MjEsImV4cCI6MjA4Mjc2NjgyMX0.yGxyrn2nMTEbl6w8Lk8HwsblgqNzGS36ckZBGXAIitQ';
 </script>
 <script src="/js/callGAS.js"></script>
+<script src="/js/ranking-associacao.js"></script>
 </head>
 <body>
 
@@ -38718,7 +38719,8 @@ function fecharFullscreen() {
      const registros = (cfg.kind === 'atividades' ? estado.dados.atividades : estado.dados.campanhas) || [];
      const als = Array.from(new Set(registros.map(r => String((r && r.al) || '').trim()).filter(Boolean)))
        .sort((a, b) => b.localeCompare(a));
-     const tipos = Array.from(new Set((estado.dados.pessoasRTMA || []).map(p => String((p && p.tipo) || '').trim()).filter(Boolean)))
+     const pessoasTipo = rankingPessoasResolvidas(estado.dados.pessoasRTMA);
+     const tipos = Array.from(new Set(pessoasTipo.map(p => String((p && p.tipo) || '').trim()).filter(Boolean)))
        .sort((a, b) => a.localeCompare(b));
 
      rankingPreencherSelect('ranking-filtro-al-' + escopo, als, 'Todos os ALs');
@@ -38735,11 +38737,13 @@ function fecharFullscreen() {
      const alSelecionado = selectAL ? selectAL.value : '';
      const tipoAssociacao = selectTipo ? selectTipo.value : '';
 
-     // Filtro por tipo de associação atua na lista de pessoas do RTMA:
-     // quem não é do tipo escolhido simplesmente não entra no ranking.
-     let pessoas = estado.dados.pessoasRTMA || [];
+     // Tipo efetivo (datas do RTMA), não o campo gravado: cadastros duplicados
+     // ou tipo desatualizado não podem filtrar/exibir a pessoa no grupo errado.
+     let pessoas = rankingPessoasResolvidas(estado.dados.pessoasRTMA);
      if (tipoAssociacao) {
-       pessoas = pessoas.filter(p => p && String(p.tipo || '').trim() === tipoAssociacao);
+       pessoas = (typeof RankingAssociacao !== 'undefined' && RankingAssociacao.filtrarPorTipo)
+         ? RankingAssociacao.filtrarPorTipo(pessoas, tipoAssociacao)
+         : pessoas.filter(p => p && String(p.tipo || '').trim() === tipoAssociacao);
      }
 
      let registros = (cfg.kind === 'atividades' ? estado.dados.atividades : estado.dados.campanhas) || [];
@@ -38758,6 +38762,13 @@ function fecharFullscreen() {
 
    function rankingAplicarFiltros(escopo) {
      rankingRenderizar(escopo);
+   }
+
+   function rankingPessoasResolvidas(pessoasRTMA) {
+     if (typeof RankingAssociacao !== 'undefined' && RankingAssociacao.resolverPessoas) {
+       return RankingAssociacao.resolverPessoas(pessoasRTMA || []);
+     }
+     return pessoasRTMA || [];
    }
 
    function rankingCarregar(escopo, tipo) {
@@ -39001,8 +39012,8 @@ function fecharFullscreen() {
      const mapaPessoas = {};
      const mapaClubesPorNome = {}; // Para armazenar o clube principal de cada pessoa (distrital)
      
-     // Criar mapa de pessoas do RTMA
-     pessoasRTMA.forEach(p => {
+     // Criar mapa de pessoas do RTMA (tipo efetivo + um registro por nome)
+     rankingPessoasResolvidas(pessoasRTMA).forEach(p => {
        const nomeNormalizado = normalizarNome(p.nome);
       if (!mapaPessoas[nomeNormalizado]) {
         mapaPessoas[nomeNormalizado] = {
@@ -39175,8 +39186,8 @@ function fecharFullscreen() {
      const mapaPessoas = {};
      const mapaClubesPorNome = {}; // Para armazenar o clube principal de cada pessoa (distrital)
      
-     // Criar mapa de pessoas do RTMA
-     pessoasRTMA.forEach(p => {
+     // Criar mapa de pessoas do RTMA (tipo efetivo + um registro por nome)
+     rankingPessoasResolvidas(pessoasRTMA).forEach(p => {
        const nomeNormalizado = normalizarNome(p.nome);
       if (!mapaPessoas[nomeNormalizado]) {
         mapaPessoas[nomeNormalizado] = {

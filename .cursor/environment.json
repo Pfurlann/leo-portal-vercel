@@ -1,0 +1,14 @@
+{
+  "name": "LEO Portal (Vercel)",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "dev-server",
+      "command": "node scripts/dev-server.js --host 0.0.0.0 --port 3000",
+      "description": "Local LEO Portal dev server: serves static public/ assets and dispatches /api to the api/index.js serverless handler, mirroring vercel.json routing and headers. Available at http://localhost:3000."
+    }
+  ],
+  "ports": [
+    { "name": "web", "port": 3000 }
+  ]
+}

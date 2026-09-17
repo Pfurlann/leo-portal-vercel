@@ -21022,6 +21022,10 @@ function atualizarEstatisticasGerenciaisFiltradas() {
         resumoData.push([`Data: ${formatarData(evento.dataEvento)}`]);
       }
       resumoData.push([`Total de inscritos: ${dados.totalInscritos || 0}`]);
+      // Deixa explícito de qual gestão vieram os cargos (a do evento, não a atual).
+      if (evento.alNominata) {
+        resumoData.push([`Cargos conforme a nominata do AL ${evento.alNominata}`]);
+      }
       resumoData.push([]);
       resumoData.push(['Clube', 'Lote', 'Qtd', 'Valor Unitário', 'Valor Total']);
 

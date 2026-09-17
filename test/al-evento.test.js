@@ -101,3 +101,23 @@ describe('_obterAlDoEvento', () => {
     assert.equal(await code._obterAlDoEvento({ nome: 'Evento sem datas' }), esperado);
   });
 });
+
+// Relatório de inscritos do Gabinete Distrital: o "pessoaTipo" gravado na inscrição já é o
+// cargo que a pessoa tem NO GABINETE/DISTRITO (ex.: "Diretor(a) de Zona 1"), escolhido na
+// nominata distrital no momento da inscrição — não deve ser trocado pelo cargo que ela tem
+// na nominata do PRÓPRIO clube dela (usada só para achar posse/RTMA/contato), senão os dois
+// papéis se misturam no relatório.
+describe('_cargoVemDaInscricaoGD', () => {
+  it('reconhece o clube "Gabinete Distrital" (com variação de maiúsculas/espaços)', () => {
+    assert.equal(code._cargoVemDaInscricaoGD('Gabinete Distrital'), true);
+    assert.equal(code._cargoVemDaInscricaoGD('GABINETE DISTRITAL'), true);
+    assert.equal(code._cargoVemDaInscricaoGD('  Gabinete Distrital  '), true);
+  });
+
+  it('não confunde um clube comum com o Gabinete Distrital', () => {
+    assert.equal(code._cargoVemDaInscricaoGD('Ômega Cunha Porã'), false);
+    assert.equal(code._cargoVemDaInscricaoGD(''), false);
+    assert.equal(code._cargoVemDaInscricaoGD(null), false);
+    assert.equal(code._cargoVemDaInscricaoGD(undefined), false);
+  });
+});
